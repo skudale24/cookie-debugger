@@ -254,7 +254,7 @@ static CookieInputType PromptForInputType()
     {
         Console.WriteLine();
         Console.WriteLine("Choose input type");
-        Console.WriteLine("1. Paste encrypted cookie");
+        Console.WriteLine("1. Paste encrypted cookie and fingerprint");
         Console.WriteLine("2. Load HAR file");
         Console.WriteLine("3. Paste Encrypted Request/Response");
         Console.Write("Choice [1]: ");
