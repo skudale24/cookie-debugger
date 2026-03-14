@@ -32,6 +32,44 @@ dotnet run
 dotnet build
 ```
 
+## Publish
+
+Project publish settings are stored in `CookieDebugger.csproj`, so a release package can be created with:
+
+```bash
+dotnet publish -c Release
+```
+
+The published app will appear under:
+
+```text
+bin/Release/net8.0/win-x64/publish/
+```
+
+## Build Script
+
+You can also use the repo-local script:
+
+```powershell
+.\build.ps1
+```
+
+## Optional Shell Alias
+
+PowerShell profile:
+
+```powershell
+function build-cookie {
+    dotnet publish -c Release
+}
+```
+
+Bash / Git Bash:
+
+```bash
+alias buildcookie="dotnet publish -c Release"
+```
+
 ## Publish This Folder To GitHub
 
 1. Create a new empty repository in GitHub.

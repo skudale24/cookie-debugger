@@ -478,7 +478,7 @@ static string BuildDecryptedPayloadJson(string jwt, Func<string, string>? valueT
         pair => TransformJwtValue(pair.Value, valueTransformer),
         StringComparer.Ordinal);
 
-    return JsonSerializer.Serialize(payload, CreatePrettyJsonOptions());
+    return SerializeIndentedJson(payload);
 }
 
 static string BuildTokenStatusJson(JwtInspectionResult report)
@@ -490,7 +490,7 @@ static string BuildTokenStatusJson(JwtInspectionResult report)
         ["isExpired"] = report.IsExpired
     };
 
-    return JsonSerializer.Serialize(payload, CreatePrettyJsonOptions());
+    return SerializeIndentedJson(payload);
 }
 
 static object? TransformJwtValue(object? value, Func<string, string>? valueTransformer)
@@ -534,7 +534,7 @@ static string SerializeJsonObject(IEnumerable<KeyValuePair<string, object>> valu
         pair => NormalizeJwtValue(pair.Value),
         StringComparer.Ordinal);
 
-    return JsonSerializer.Serialize(dictionary, CreatePrettyJsonOptions());
+    return SerializeIndentedJson(dictionary);
 }
 
 static object? NormalizeJwtValue(object? value)
@@ -673,13 +673,95 @@ static string Pad(string value, int width)
     return value.Length >= width ? value[..width] : value.PadRight(width);
 }
 
-static JsonSerializerOptions CreatePrettyJsonOptions()
+static string SerializeIndentedJson(IReadOnlyDictionary<string, object?> values)
 {
-    return new JsonSerializerOptions
+    using var stream = new MemoryStream();
+    using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
     {
-        WriteIndented = true,
+        Indented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
+    }))
+    {
+        WriteJsonObject(writer, values);
+    }
+
+    return Encoding.UTF8.GetString(stream.ToArray());
+}
+
+static void WriteJsonObject(Utf8JsonWriter writer, IReadOnlyDictionary<string, object?> values)
+{
+    writer.WriteStartObject();
+    foreach (var pair in values)
+    {
+        writer.WritePropertyName(pair.Key);
+        WriteJsonValue(writer, pair.Value);
+    }
+
+    writer.WriteEndObject();
+}
+
+static void WriteJsonValue(Utf8JsonWriter writer, object? value)
+{
+    switch (value)
+    {
+        case null:
+            writer.WriteNullValue();
+            return;
+        case JsonElement element:
+            element.WriteTo(writer);
+            return;
+        case string stringValue:
+            writer.WriteStringValue(stringValue);
+            return;
+        case bool boolValue:
+            writer.WriteBooleanValue(boolValue);
+            return;
+        case byte byteValue:
+            writer.WriteNumberValue(byteValue);
+            return;
+        case short shortValue:
+            writer.WriteNumberValue(shortValue);
+            return;
+        case int intValue:
+            writer.WriteNumberValue(intValue);
+            return;
+        case long longValue:
+            writer.WriteNumberValue(longValue);
+            return;
+        case float floatValue:
+            writer.WriteNumberValue(floatValue);
+            return;
+        case double doubleValue:
+            writer.WriteNumberValue(doubleValue);
+            return;
+        case decimal decimalValue:
+            writer.WriteNumberValue(decimalValue);
+            return;
+        case uint uintValue:
+            writer.WriteNumberValue(uintValue);
+            return;
+        case ulong ulongValue:
+            writer.WriteNumberValue(ulongValue);
+            return;
+        case IReadOnlyDictionary<string, object?> dictionary:
+            WriteJsonObject(writer, dictionary);
+            return;
+        case IDictionary<string, object?> dictionary:
+            WriteJsonObject(writer, new Dictionary<string, object?>(dictionary, StringComparer.Ordinal));
+            return;
+        case IEnumerable<object?> enumerable:
+            writer.WriteStartArray();
+            foreach (var item in enumerable)
+            {
+                WriteJsonValue(writer, item);
+            }
+
+            writer.WriteEndArray();
+            return;
+        default:
+            writer.WriteStringValue(value.ToString());
+            return;
+    }
 }
 
 enum CookieInputType

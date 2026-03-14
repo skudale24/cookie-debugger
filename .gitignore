@@ -3,5 +3,6 @@ bin/
 obj/
 .dotnet/
 build-verify/
+publish/
 userstate.json
 .vs/
