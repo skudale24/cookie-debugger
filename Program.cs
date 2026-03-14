@@ -1,5 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
+using System.Text.Encodings.Web;
+using System.Text;
+using System.Text.Json;
 using CookieDebugger.Models;
 using CookieDebugger.Services;
 using CookieDebugger.State;
@@ -70,7 +73,7 @@ while (true)
 
         if (inputType == CookieInputType.DecryptedRequestResponse)
         {
-            var encryptedText = PromptRequired("Paste Decrypted Request/Response");
+            var encryptedText = PromptRequired("Paste Encrypted Request/Response");
             var clearText = fingerprintDecryptor.Decrypt(
                 encryptedText,
                 settings.FingerprintDecryption.Key,
@@ -164,17 +167,21 @@ while (true)
                 }
 
                 Console.WriteLine();
-                WriteSection("JWT Claim Comparison");
+                WriteSection("JWT Comparison");
                 if (string.IsNullOrWhiteSpace(authorizationJwt))
                 {
                     Console.WriteLine("No JWT was found in the Authorization header of the request.");
                 }
                 else
                 {
-                    WriteClaimsComparisonTable(
+                    var authReport = jwtInspector.Inspect(authorizationJwt);
+
+                    WriteJsonComparisonSections(
                         decryptedJwt,
                         authorizationJwt,
                         rawValue => TryDecryptClaimValue(rawValue, fingerprintDecryptor, settings.FingerprintDecryption.Key, settings.FingerprintDecryption.IV));
+                    Console.WriteLine();
+                    WriteTokenStatusComparisonTable(report, authReport);
                 }
             }
             else
@@ -249,7 +256,7 @@ static CookieInputType PromptForInputType()
         Console.WriteLine("Choose input type");
         Console.WriteLine("1. Paste encrypted cookie");
         Console.WriteLine("2. Load HAR file");
-        Console.WriteLine("3. Paste Decrypted Request/Response");
+        Console.WriteLine("3. Paste Encrypted Request/Response");
         Console.Write("Choice [1]: ");
 
         var input = Console.ReadLine()?.Trim();
@@ -428,55 +435,135 @@ static void WriteError(string message)
     Console.ResetColor();
 }
 
-static void WriteClaimsComparisonTable(string cookieJwt, string authJwt, Func<string, string> authValueTransformer)
+static void WriteJsonComparisonSections(string cookieJwt, string authJwt, Func<string, string> authValueTransformer)
 {
-    var cookieClaims = ReadJwtClaims(cookieJwt);
-    var authClaims = ReadJwtClaims(authJwt, authValueTransformer);
-    var claimNames = cookieClaims.Keys
-        .Union(authClaims.Keys, StringComparer.Ordinal)
-        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-        .ToList();
+    var cookieHeaderJson = GetJwtHeaderJson(cookieJwt);
+    var authHeaderJson = GetJwtHeaderJson(authJwt);
+    var cookieRawPayloadJson = GetJwtPayloadJson(cookieJwt);
+    var authRawPayloadJson = GetJwtPayloadJson(authJwt);
+    var cookieDecryptedPayloadJson = BuildDecryptedPayloadJson(cookieJwt, null);
+    var authDecryptedPayloadJson = BuildDecryptedPayloadJson(authJwt, authValueTransformer);
 
-    var totalWidth = GetTableWidth();
-    var innerWidth = totalWidth - 4;
-    var claimWidth = Math.Max(12, Math.Min(24, innerWidth / 5));
-    var valueWidth = (innerWidth - claimWidth - 4) / 2;
-
-    Console.WriteLine(BuildSeparator(claimWidth, valueWidth, valueWidth));
-    Console.WriteLine(BuildThreeColumnRow("Claim", claimWidth, "Cookie JWT", valueWidth, "Auth JWT", valueWidth));
-    Console.WriteLine(BuildSeparator(claimWidth, valueWidth, valueWidth));
-
-    foreach (var claimName in claimNames)
-    {
-        var leftValue = cookieClaims.TryGetValue(claimName, out var cookieValue) ? cookieValue : string.Empty;
-        var rightValue = authClaims.TryGetValue(claimName, out var authValue) ? authValue : string.Empty;
-
-        var claimLines = WrapText(claimName, claimWidth);
-        var leftLines = WrapText(leftValue, valueWidth);
-        var rightLines = WrapText(rightValue, valueWidth);
-        var rowCount = Math.Max(claimLines.Count, Math.Max(leftLines.Count, rightLines.Count));
-
-        for (var i = 0; i < rowCount; i++)
-        {
-            var claim = i < claimLines.Count ? claimLines[i] : string.Empty;
-            var left = i < leftLines.Count ? leftLines[i] : string.Empty;
-            var right = i < rightLines.Count ? rightLines[i] : string.Empty;
-            Console.WriteLine(BuildThreeColumnRow(claim, claimWidth, left, valueWidth, right, valueWidth));
-        }
-
-        Console.WriteLine(BuildSeparator(claimWidth, valueWidth, valueWidth));
-    }
+    WriteTwoColumnTextTable("Header JSON", "Cookie JWT", cookieHeaderJson, "Auth JWT", authHeaderJson);
+    Console.WriteLine();
+    WriteTwoColumnTextTable("Raw Payload JSON", "Cookie JWT", cookieRawPayloadJson, "Auth JWT", authRawPayloadJson);
+    Console.WriteLine();
+    WriteTwoColumnTextTable("Decrypted Payload Values", "Cookie JWT", cookieDecryptedPayloadJson, "Auth JWT", authDecryptedPayloadJson);
 }
 
-static Dictionary<string, string> ReadJwtClaims(string jwt, Func<string, string>? valueTransformer = null)
+static void WriteTokenStatusComparisonTable(JwtInspectionResult cookieReport, JwtInspectionResult authReport)
+{
+    var cookieJson = BuildTokenStatusJson(cookieReport);
+    var authJson = BuildTokenStatusJson(authReport);
+    WriteTwoColumnTextTable("Token Status", "Cookie JWT", cookieJson, "Auth JWT", authJson);
+}
+
+static string GetJwtHeaderJson(string jwt)
 {
     var token = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
-    return token.Claims
-        .GroupBy(claim => claim.Type, StringComparer.Ordinal)
-        .ToDictionary(
-            group => group.Key,
-            group => string.Join(" | ", group.Select(claim => valueTransformer is null ? claim.Value : valueTransformer(claim.Value))),
-            StringComparer.Ordinal);
+    return SerializeJsonObject(token.Header);
+}
+
+static string GetJwtPayloadJson(string jwt)
+{
+    var token = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
+    return SerializeJsonObject(token.Payload);
+}
+
+static string BuildDecryptedPayloadJson(string jwt, Func<string, string>? valueTransformer)
+{
+    var token = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
+    var payload = token.Payload.ToDictionary(
+        pair => pair.Key,
+        pair => TransformJwtValue(pair.Value, valueTransformer),
+        StringComparer.Ordinal);
+
+    return JsonSerializer.Serialize(payload, CreatePrettyJsonOptions());
+}
+
+static string BuildTokenStatusJson(JwtInspectionResult report)
+{
+    var payload = new Dictionary<string, object?>
+    {
+        ["expReadable"] = report.ExpiresReadable,
+        ["remainingTimeUntilExpiration"] = report.RemainingTimeUntilExpiration,
+        ["isExpired"] = report.IsExpired
+    };
+
+    return JsonSerializer.Serialize(payload, CreatePrettyJsonOptions());
+}
+
+static object? TransformJwtValue(object? value, Func<string, string>? valueTransformer)
+{
+    if (valueTransformer is null || value is null)
+    {
+        return value;
+    }
+
+    return value switch
+    {
+        string stringValue => valueTransformer(stringValue),
+        JsonElement jsonElement => TransformJsonElement(jsonElement, valueTransformer),
+        IEnumerable<object?> enumerable => enumerable.Select(item => TransformJwtValue(item, valueTransformer)).ToList(),
+        _ => value
+    };
+}
+
+static object? TransformJsonElement(JsonElement element, Func<string, string> valueTransformer)
+{
+    return element.ValueKind switch
+    {
+        JsonValueKind.String => valueTransformer(element.GetString() ?? string.Empty),
+        JsonValueKind.Array => element.EnumerateArray().Select(item => TransformJsonElement(item, valueTransformer)).ToList(),
+        JsonValueKind.Object => element.EnumerateObject().ToDictionary(
+            property => property.Name,
+            property => TransformJsonElement(property.Value, valueTransformer),
+            StringComparer.Ordinal),
+        JsonValueKind.Number => element.ToString(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        _ => element.ToString()
+    };
+}
+
+static string SerializeJsonObject(IEnumerable<KeyValuePair<string, object>> values)
+{
+    var dictionary = values.ToDictionary(
+        pair => pair.Key,
+        pair => NormalizeJwtValue(pair.Value),
+        StringComparer.Ordinal);
+
+    return JsonSerializer.Serialize(dictionary, CreatePrettyJsonOptions());
+}
+
+static object? NormalizeJwtValue(object? value)
+{
+    return value switch
+    {
+        null => null,
+        JsonElement jsonElement => NormalizeJsonElement(jsonElement),
+        IEnumerable<object?> enumerable => enumerable.Select(NormalizeJwtValue).ToList(),
+        _ => value
+    };
+}
+
+static object? NormalizeJsonElement(JsonElement element)
+{
+    return element.ValueKind switch
+    {
+        JsonValueKind.Object => element.EnumerateObject().ToDictionary(
+            property => property.Name,
+            property => NormalizeJsonElement(property.Value),
+            StringComparer.Ordinal),
+        JsonValueKind.Array => element.EnumerateArray().Select(NormalizeJsonElement).ToList(),
+        JsonValueKind.String => element.GetString(),
+        JsonValueKind.Number => element.ToString(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        _ => element.ToString()
+    };
 }
 
 static string TryDecryptClaimValue(string rawValue, FingerprintDecryptor decryptor, string key, string iv)
@@ -552,14 +639,47 @@ static string BuildSeparator(params int[] widths)
     return "+" + string.Join("+", widths.Select(width => new string('-', width + 2))) + "+";
 }
 
-static string BuildThreeColumnRow(string first, int firstWidth, string second, int secondWidth, string third, int thirdWidth)
+static void WriteTwoColumnTextTable(string title, string leftHeader, string leftValue, string rightHeader, string rightValue)
 {
-    return $"| {Pad(first, firstWidth)} | {Pad(second, secondWidth)} | {Pad(third, thirdWidth)} |";
+    var totalWidth = GetTableWidth();
+    var innerWidth = totalWidth - 3;
+    var columnWidth = (innerWidth - 3) / 2;
+    var leftLines = WrapText(leftValue, columnWidth);
+    var rightLines = WrapText(rightValue, columnWidth);
+    var rowCount = Math.Max(leftLines.Count, rightLines.Count);
+
+    Console.WriteLine(title);
+    Console.WriteLine(BuildSeparator(columnWidth, columnWidth));
+    Console.WriteLine(BuildTwoColumnRow(leftHeader, columnWidth, rightHeader, columnWidth));
+    Console.WriteLine(BuildSeparator(columnWidth, columnWidth));
+
+    for (var i = 0; i < rowCount; i++)
+    {
+        var left = i < leftLines.Count ? leftLines[i] : string.Empty;
+        var right = i < rightLines.Count ? rightLines[i] : string.Empty;
+        Console.WriteLine(BuildTwoColumnRow(left, columnWidth, right, columnWidth));
+    }
+
+    Console.WriteLine(BuildSeparator(columnWidth, columnWidth));
+}
+
+static string BuildTwoColumnRow(string first, int firstWidth, string second, int secondWidth)
+{
+    return $"| {Pad(first, firstWidth)} | {Pad(second, secondWidth)} |";
 }
 
 static string Pad(string value, int width)
 {
     return value.Length >= width ? value[..width] : value.PadRight(width);
+}
+
+static JsonSerializerOptions CreatePrettyJsonOptions()
+{
+    return new JsonSerializerOptions
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 }
 
 enum CookieInputType
