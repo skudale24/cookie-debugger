@@ -307,9 +307,6 @@ static string PromptForHarFilePath(string? defaultValue)
 {
     Console.WriteLine();
     Console.WriteLine("Drag HAR file here or paste path:");
-    Console.WriteLine();
-    Console.WriteLine("Example:");
-    Console.WriteLine(@"C:\Users\siddharth\Downloads\session.har");
 
     var prompt = string.IsNullOrWhiteSpace(defaultValue)
         ? "HAR file path: "
