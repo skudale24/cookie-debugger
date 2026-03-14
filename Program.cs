@@ -16,7 +16,6 @@ builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
 
-builder.Services.Configure<AppSettings>(builder.Configuration);
 builder.Services.AddSingleton<CookieParser>();
 builder.Services.AddSingleton<HarFileParser>();
 builder.Services.AddSingleton<FingerprintDecryptor>();
@@ -27,7 +26,7 @@ builder.Services.AddSingleton<UserStateStore>();
 using var host = builder.Build();
 
 var configuration = host.Services.GetRequiredService<IConfiguration>();
-var settings = configuration.Get<AppSettings>() ?? new AppSettings();
+var settings = LoadAppSettings(configuration);
 var stateStore = host.Services.GetRequiredService<UserStateStore>();
 var cookieParser = host.Services.GetRequiredService<CookieParser>();
 var harFileParser = host.Services.GetRequiredService<HarFileParser>();
@@ -247,6 +246,24 @@ while (true)
 }
 
 return;
+
+static AppSettings LoadAppSettings(IConfiguration configuration)
+{
+    return new AppSettings
+    {
+        PassPhrases = new PassPhrases
+        {
+            Dev = configuration["PassPhrases:Dev"] ?? string.Empty,
+            Stage = configuration["PassPhrases:Stage"] ?? string.Empty,
+            Production = configuration["PassPhrases:Production"] ?? string.Empty
+        },
+        FingerprintDecryption = new FingerprintDecryption
+        {
+            Key = configuration["FingerprintDecryption:Key"] ?? string.Empty,
+            IV = configuration["FingerprintDecryption:IV"] ?? string.Empty
+        }
+    };
+}
 
 static CookieInputType PromptForInputType()
 {
