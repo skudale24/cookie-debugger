@@ -13,8 +13,11 @@ using Microsoft.Extensions.Hosting;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+    .AddJsonFile(
+        Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
+        optional: true)
+    .AddEnvironmentVariables()
+    .AddCommandLine(args);
 
 builder.Services.AddSingleton<CookieParser>();
 builder.Services.AddSingleton<HarFileParser>();
