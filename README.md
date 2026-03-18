@@ -42,6 +42,8 @@ Top-level commands:
 bcd jwt ...
 bcd har <file.har>
 bcd decrypt <ciphertext>
+bcd completion powershell
+bcd completion bash
 ```
 
 ### JWT Commands
@@ -76,6 +78,58 @@ What each command does:
 - `jwt can-read` is a quick structural check to tell whether a value can be parsed as a JWT.
 - `har` extracts the cookie/auth JWTs from a HAR and compares them.
 - `decrypt` decrypts an encrypted request/response payload using the configured AES key and IV.
+- `completion powershell` prints a PowerShell tab-completion script for the CLI.
+- `completion bash` prints a bash completion script for the CLI.
+
+## Autocomplete
+
+PowerShell and bash tab completion are supported.
+
+Preview the PowerShell script:
+
+```powershell
+bcd completion powershell
+```
+
+Enable it for the current session:
+
+```powershell
+bcd completion powershell | Out-String | Invoke-Expression
+```
+
+Persist it in your PowerShell profile:
+
+```powershell
+"`n# bcd completions`n$(bcd completion powershell | Out-String)" | Add-Content $PROFILE
+```
+
+Preview the bash script:
+
+```bash
+bcd completion bash
+```
+
+Enable it for the current shell:
+
+```bash
+eval "$(bcd completion bash)"
+```
+
+Persist it in your shell startup file:
+
+```bash
+echo '' >> ~/.bashrc
+echo '# bcd completions' >> ~/.bashrc
+echo 'eval "$(bcd completion bash)"' >> ~/.bashrc
+```
+
+After loading the script, `Tab` completion works for:
+
+- top-level commands like `jwt`, `har`, `decrypt`, and `completion`
+- JWT subcommands like `cookie`, `inspect`, `decode`, `validate`, and `can-read`
+- command options such as `--environment`
+- environment values like `Dev`, `Stage`, and `Production`
+- `.har` file paths for the `har` command
 
 ## Build
 
