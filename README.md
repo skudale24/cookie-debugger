@@ -1,6 +1,6 @@
 # Cookie Debugger
 
-Console utility for decrypting and inspecting cookies/JWTs, comparing cookie and auth JWT claims from HAR files, and decrypting pasted encrypted request/response payloads.
+Console utility for decrypting and inspecting cookies/JWTs, comparing cookie and auth JWT claims from HAR files, decrypting pasted encrypted request/response payloads, and automating common JWT workflows from the command line.
 
 ## Local Setup
 
@@ -20,11 +20,62 @@ Then edit `appsettings.json` and replace the placeholder values with your real s
 
 `appsettings.json` is local-only and is ignored by Git.
 
-## Run
+## Interactive Mode
 
 ```bash
 dotnet run
 ```
+
+Or after publishing:
+
+```bash
+bcd
+```
+
+Running with no arguments opens the interactive console flow.
+
+## CLI Commands
+
+Top-level commands:
+
+```bash
+bcd jwt ...
+bcd har <file.har>
+bcd decrypt <ciphertext>
+```
+
+### JWT Commands
+
+Grouped under `jwt`:
+
+```bash
+bcd jwt cookie --cookie <cookie> --fingerprint <fingerprint> [--environment Dev|Stage|Production]
+bcd jwt inspect <jwt>
+bcd jwt decode <jwt>
+bcd jwt validate <jwt>
+bcd jwt can-read <value>
+```
+
+Shortcuts:
+
+```bash
+bcd jwt c --cookie <cookie> --fingerprint <fingerprint>
+bcd jwt i <jwt>
+bcd jwt d <jwt>
+bcd jwt v <jwt>
+bcd jwt cr <value>
+bcd jwt canread <value>
+```
+
+What each command does:
+
+- `jwt cookie` decrypts the cookie JWT using the supplied cookie string and fingerprint, then prints the decoded token details.
+- `jwt inspect` shows the raw JWT, claims, header JSON, payload JSON, and token timing details.
+- `jwt decode` gives a more compact decode view focused on the token structure and timing.
+- `jwt validate` performs readability and lifetime checks only. It does not verify the signature.
+- `jwt can-read` is a quick structural check to tell whether a value can be parsed as a JWT.
+- `har` extracts the cookie/auth JWTs from a HAR and compares them.
+- `decrypt` decrypts an encrypted request/response payload using the configured AES key and IV.
 
 ## Build
 
@@ -44,6 +95,12 @@ The published app will appear under:
 
 ```text
 bin/Release/net8.0/win-x64/publish/
+```
+
+The published executable is:
+
+```text
+bin/Release/net8.0/win-x64/publish/BlazorCookieDebugger.exe
 ```
 
 ## Build Script
