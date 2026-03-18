@@ -14,6 +14,10 @@
     <type fullname="CookieDebugger.Commands.HarSettings" preserve="all" />
     <type fullname="CookieDebugger.Commands.DecryptCommand" preserve="all" />
     <type fullname="CookieDebugger.Commands.DecryptSettings" preserve="all" />
+    <type fullname="CookieDebugger.Commands.PowerShellCompletionCommand" preserve="all" />
+    <type fullname="CookieDebugger.Commands.PowerShellCompletionSettings" preserve="all" />
+    <type fullname="CookieDebugger.Commands.BashCompletionCommand" preserve="all" />
+    <type fullname="CookieDebugger.Commands.BashCompletionSettings" preserve="all" />
     <type fullname="CookieDebugger.Commands.InteractiveCommand" preserve="all" />
   </assembly>
 </linker>

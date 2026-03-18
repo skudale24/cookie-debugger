@@ -24,6 +24,7 @@ services.AddSingleton<UserStateStore>();
 services.AddSingleton<DebuggerService>();
 services.AddSingleton<ConsolePresenter>();
 services.AddSingleton<InteractiveModeService>();
+services.AddSingleton<CompletionService>();
 
 var registrar = new TypeRegistrar(services);
 var app = new CommandApp(registrar);
@@ -65,11 +66,31 @@ app.Configure(config =>
     config.AddCommand<DecryptCommand>("decrypt")
         .WithDescription("Decrypt an encrypted request or response payload.")
         .WithExample(new[] { "decrypt", "<ciphertext>" });
+
+    config.AddBranch("completion", completion =>
+    {
+        completion.SetDescription("Generate shell completion scripts.");
+        completion.AddCommand<PowerShellCompletionCommand>("powershell")
+            .WithAlias("pwsh")
+            .WithAlias("ps")
+            .WithDescription("Print a PowerShell script that enables tab completion for bcd.")
+            .WithExample(new[] { "completion", "powershell" });
+        completion.AddCommand<BashCompletionCommand>("bash")
+            .WithAlias("sh")
+            .WithDescription("Print a bash completion script for bcd.")
+            .WithExample(new[] { "completion", "bash" });
+    });
 });
+
+using var provider = services.BuildServiceProvider();
+
+if (args.Length > 0 && string.Equals(args[0], "__complete", StringComparison.Ordinal))
+{
+    return provider.GetRequiredService<CompletionService>().RunHiddenCompletion(args.Skip(1).ToArray());
+}
 
 if (args.Length == 0)
 {
-    using var provider = services.BuildServiceProvider();
     return await provider.GetRequiredService<InteractiveModeService>().RunAsync();
 }
 
