@@ -4,5 +4,6 @@ obj/
 .dotnet/
 build-verify/
 publish/
+publish-fresh/
 userstate.json
 .vs/
