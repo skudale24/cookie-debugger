@@ -46,7 +46,7 @@ public sealed class CookieParser
         }
 
         var normalized = NormalizeEncryptedPayloadCandidate(input);
-        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length <= 24)
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length < 24)
         {
             return false;
         }
@@ -54,7 +54,7 @@ public sealed class CookieParser
         try
         {
             var payloadBytes = Convert.FromBase64String(normalized);
-            return payloadBytes.Length > 16;
+            return payloadBytes.Length >= 16;
         }
         catch (FormatException)
         {

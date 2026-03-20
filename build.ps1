@@ -1,2 +1,3 @@
-dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
-Write-Host "Build complete"
+dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj -c Release
+dotnet publish .\DecryptTool.UI\DecryptTool.UI.csproj -c Release
+Write-Host "Publish complete"

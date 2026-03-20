@@ -30,9 +30,11 @@ cp appsettings.template.json appsettings.json
 Publish targets:
 
 ```powershell
-dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj
-dotnet publish .\DecryptTool.UI\DecryptTool.UI.csproj
+dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj -c Release
+dotnet publish .\DecryptTool.UI\DecryptTool.UI.csproj -c Release
 ```
+
+Both projects now publish as self-contained single-file `win-x64` apps by default. For distribution, keep the published `.exe` together with `appsettings.json`.
 
 PowerShell:
 

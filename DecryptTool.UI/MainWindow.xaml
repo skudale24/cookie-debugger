@@ -5,12 +5,54 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="DecryptTool"
-        Width="980"
-        Height="720"
-        MinWidth="860"
-        MinHeight="620"
-        Background="#F3EFE6">
-    <Grid Margin="24">
+        Width="1180"
+        Height="820"
+        MinWidth="1020"
+        MinHeight="740"
+        FontFamily="Segoe UI"
+        FontSize="14"
+        Background="#EEE7DA">
+    <Window.Resources>
+        <Style x:Key="BodyText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="#22322E" />
+        </Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#22322E" />
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#22322E" />
+        </Style>
+        <Style x:Key="InputBox" TargetType="TextBox">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderBrush" Value="#CBBEA7" />
+            <Setter Property="Background" Value="#FFFDFC" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+        </Style>
+        <Style x:Key="CodeBox" TargetType="TextBox" BasedOn="{StaticResource InputBox}">
+            <Setter Property="FontFamily" Value="Cascadia Code" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="AcceptsReturn" Value="True" />
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Padding" Value="18,8" />
+            <Setter Property="Background" Value="#BE5A38" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="22">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="16" />
@@ -20,133 +62,364 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
-                Padding="20"
-                CornerRadius="18"
-                Background="#1E3A34">
-            <StackPanel>
-                <TextBlock FontSize="28"
-                           FontWeight="SemiBold"
-                           Foreground="#F6F0E4"
-                           Text="DecryptTool UI" />
-                <TextBlock Margin="0,8,0,0"
-                           FontSize="14"
-                           Foreground="#D7E2DC"
-                           Text="QA-friendly cookie decryption powered by the same core service as tok." />
-            </StackPanel>
+                Padding="22"
+                CornerRadius="22"
+                Background="#173B37">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock FontSize="30"
+                               FontWeight="SemiBold"
+                               Foreground="#F8F2E8"
+                               Text="DecryptTool UI" />
+                    <TextBlock Margin="0,8,0,0"
+                               FontSize="15"
+                               Foreground="#D0E1DB"
+                               Text="Four focused workflows, one shared core service." />
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Padding="14,8"
+                        CornerRadius="16"
+                        Background="{Binding StatusBrush}"
+                        VerticalAlignment="Top">
+                    <TextBlock FontWeight="SemiBold"
+                               FontSize="15"
+                               Foreground="{Binding LightTextBrushValue}"
+                               Text="{Binding StatusText}" />
+                </Border>
+            </Grid>
         </Border>
 
         <Border Grid.Row="2"
-                Padding="20"
-                CornerRadius="18"
+                Padding="18"
+                CornerRadius="20"
                 Background="#FFFDFC">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2.2*" />
-                    <ColumnDefinition Width="20" />
-                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="170" />
                 </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="10" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="10" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Grid.Column="0">
-                    <TextBlock Margin="0,0,0,6"
-                               FontWeight="SemiBold"
-                               Foreground="#22322E"
-                               Text="Encrypted Cookie" />
-                    <TextBox Height="120"
-                             VerticalScrollBarVisibility="Auto"
+                <StackPanel Grid.Column="0">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Auto-detect input" />
+                    <TextBlock Margin="0,4,0,0"
+                               Style="{StaticResource BodyText}"
+                               Foreground="#5B6D68"
+                               Text="Paste a JWT, cookie, or encrypted payload and the UI will route it to the right tab." />
+                    <TextBox Margin="0,12,0,0"
+                             Height="96"
+                             Style="{StaticResource InputBox}"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"
-                             Text="{Binding Cookie, UpdateSourceTrigger=PropertyChanged}" />
+                             Text="{Binding AutoDetectInput, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
 
-                <StackPanel Grid.Row="0" Grid.Column="2">
-                    <TextBlock Margin="0,0,0,6"
-                               FontWeight="SemiBold"
-                               Foreground="#22322E"
-                               Text="Environment" />
-                    <ComboBox Height="36"
-                              ItemsSource="{Binding Environments}"
-                              SelectedItem="{Binding SelectedEnvironment}" />
-                </StackPanel>
-
-                <StackPanel Grid.Row="2" Grid.Column="0">
-                    <TextBlock Margin="0,0,0,6"
-                               FontWeight="SemiBold"
-                               Foreground="#22322E"
-                               Text="Fingerprint" />
-                    <TextBox Height="36"
-                             Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
-                </StackPanel>
-
-                <Border Grid.Row="2"
-                        Grid.Column="2"
-                        Padding="12"
-                        CornerRadius="14"
-                        Background="#EEF3F0">
-                    <StackPanel>
-                        <TextBlock FontWeight="SemiBold"
-                                   Foreground="#22322E"
-                                   Text="Defaults" />
-                        <TextBlock Margin="0,8,0,0"
-                                   Foreground="#415852"
-                                   Text="Environment defaults to Dev if no saved value exists." />
-                        <TextBlock Margin="0,6,0,0"
-                                   Foreground="#415852"
-                                   Text="The last fingerprint is saved locally for the next launch." />
-                    </StackPanel>
-                </Border>
-
-                <StackPanel Grid.Row="4"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="3"
-                            Orientation="Horizontal">
-                    <Button Width="140"
-                            Height="40"
-                            Margin="0,0,12,0"
-                            Padding="18,8"
-                            Background="#BE5A38"
-                            Foreground="White"
-                            BorderThickness="0"
-                            Click="DecryptButton_Click"
-                            Content="Decrypt" />
-                    <TextBlock VerticalAlignment="Center"
-                               Foreground="#415852"
-                               Text="{Binding Status}" />
-                </StackPanel>
+                <Button Grid.Column="2"
+                        VerticalAlignment="Bottom"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="AutoDetectButton_Click"
+                        Content="Route Input" />
             </Grid>
         </Border>
 
         <Border Grid.Row="4"
-                Padding="20"
-                CornerRadius="18"
+                Padding="18"
+                CornerRadius="22"
                 Background="#FFFDFC">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+                <TabItem Header="Cookie Decrypt">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0"
-                           FontSize="18"
-                           FontWeight="SemiBold"
-                           Foreground="#22322E"
-                           Text="Decrypted Output" />
+                            <StackPanel Grid.Row="0" Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Encrypted Cookie" />
+                                <TextBox Margin="0,8,0,0"
+                                         Height="140"
+                                         Style="{StaticResource InputBox}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Text="{Binding CookieInput, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
 
-                <TextBox Grid.Row="2"
-                         IsReadOnly="True"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
-                         TextWrapping="Wrap"
-                         FontFamily="Consolas"
-                         Text="{Binding Output}" />
-            </Grid>
+                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Fingerprint" />
+                                <TextBox Margin="0,8,0,0"
+                                         Height="40"
+                                         Style="{StaticResource InputBox}"
+                                         Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="0,14,0,0" Style="{StaticResource FieldLabel}" Text="Environment" />
+                                <ComboBox Margin="0,8,0,0"
+                                          Height="40"
+                                          FontSize="15"
+                                          ItemsSource="{Binding Environments}"
+                                          SelectedItem="{Binding SelectedEnvironment}" />
+                                <Button Margin="0,18,0,0"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="{Binding CanDecryptCookie}"
+                                        Click="CookieDecryptButton_Click"
+                                        Content="Decrypt Cookie" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Output (JSON)" />
+                                <TextBox Margin="0,10,0,0"
+                                         MinHeight="320"
+                                         Style="{StaticResource CodeBox}"
+                                         IsReadOnly="True"
+                                         Text="{Binding CookieOutput, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="JWT Inspect">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Token Input" />
+                            <TextBox Margin="0,26,0,0"
+                                     Height="110"
+                                     Style="{StaticResource InputBox}"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     Text="{Binding JwtInspectInput, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="180" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button Width="148"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="{Binding CanInspectJwt}"
+                                        Click="JwtInspectButton_Click"
+                                        Content="Inspect JWT" />
+
+                                <Border Grid.Column="4"
+                                        Padding="14,8"
+                                        CornerRadius="16"
+                                        Background="{Binding JwtInspectExpiryBadgeBrush}"
+                                        VerticalAlignment="Center">
+                                    <TextBlock FontWeight="SemiBold"
+                                               FontSize="15"
+                                               Foreground="{Binding LightTextBrushValue}"
+                                               Text="{Binding JwtInspectExpiryBadgeText}" />
+                                </Border>
+                            </Grid>
+
+                            <TextBlock Grid.Row="2"
+                                       Margin="0,54,0,0"
+                                       Style="{StaticResource BodyText}"
+                                       Foreground="#5B6D68"
+                                       Text="{Binding JwtInspectExpiryDetail}" />
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
+                                    <TextBox Margin="0,10,0,0"
+                                             MinHeight="360"
+                                             Style="{StaticResource CodeBox}"
+                                             IsReadOnly="True"
+                                             Text="{Binding JwtInspectHeader, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Payload" />
+                                    <TextBox Margin="0,10,0,0"
+                                             MinHeight="360"
+                                             Style="{StaticResource CodeBox}"
+                                             IsReadOnly="True"
+                                             Text="{Binding JwtInspectPayload, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="JWT Validate">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Token Input" />
+                                <TextBox Margin="0,8,0,0"
+                                         Height="130"
+                                         Style="{StaticResource InputBox}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Text="{Binding JwtValidateInput, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Signing Key" />
+                                <TextBox Margin="0,8,0,0"
+                                         Height="130"
+                                         Style="{StaticResource CodeBox}"
+                                         Text="{Binding JwtValidateKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="0,10,0,0"
+                                           Style="{StaticResource BodyText}"
+                                           Foreground="#5B6D68"
+                                           Text="{Binding JwtValidateKeySource}" />
+                                <Button Margin="0,18,0,0"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="{Binding CanValidateJwt}"
+                                        Click="JwtValidateButton_Click"
+                                        Content="Validate JWT" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                <Border Padding="14,8"
+                                        CornerRadius="16"
+                                        Background="{Binding JwtValidateBadgeBrush}">
+                                    <TextBlock FontWeight="SemiBold"
+                                               FontSize="15"
+                                               Foreground="{Binding LightTextBrushValue}"
+                                               Text="{Binding JwtValidateBadgeText}" />
+                                </Border>
+                            </Grid>
+
+                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Validation Result" />
+                                <TextBox Margin="0,10,0,0"
+                                         MinHeight="340"
+                                         Style="{StaticResource CodeBox}"
+                                         IsReadOnly="True"
+                                         Text="{Binding JwtValidateSummary, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Payload Decrypt">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Encrypted Payload" />
+                                <TextBox Margin="0,8,0,0"
+                                         Height="160"
+                                         Style="{StaticResource InputBox}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Text="{Binding PayloadInput, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Encryption Key" />
+                                <TextBox Margin="0,8,0,0"
+                                         Height="40"
+                                         Style="{StaticResource InputBox}"
+                                         Text="{Binding PayloadEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="0,10,0,0"
+                                           Style="{StaticResource BodyText}"
+                                           Foreground="#5B6D68"
+                                           Text="{Binding PayloadKeySource}" />
+                                <Button Margin="0,18,0,0"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="{Binding CanDecryptPayload}"
+                                        Click="PayloadDecryptButton_Click"
+                                        Content="Decrypt Payload" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Decrypted Payload" />
+                                <TextBox Margin="0,10,0,0"
+                                         MinHeight="360"
+                                         Style="{StaticResource CodeBox}"
+                                         IsReadOnly="True"
+                                         Text="{Binding PayloadOutput, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="6"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="3"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Left">
+                                <Button Width="120"
+                                        Height="38"
+                                        Margin="0,0,12,0"
+                                        Background="#355C54"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        FontSize="15"
+                                        FontWeight="SemiBold"
+                                        IsEnabled="{Binding CanCopyPayload}"
+                                        Click="CopyPayloadButton_Click"
+                                        Content="Copy" />
+                                <Button Width="120"
+                                        Height="38"
+                                        Background="#D5C4A1"
+                                        Foreground="#22322E"
+                                        BorderThickness="0"
+                                        FontSize="15"
+                                        FontWeight="SemiBold"
+                                        IsEnabled="{Binding CanClearPayload}"
+                                        Click="ClearPayloadButton_Click"
+                                        Content="Clear" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
         </Border>
     </Grid>
 </Window>

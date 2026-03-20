@@ -201,6 +201,8 @@ public sealed class DecryptService(
             throw new ArgumentException("A signing key is required.");
         }
 
+        key = NormalizeJwtSigningKey(key);
+
         var trimmed = NormalizeJwtInput(jwt);
         var readability = CanReadJwt(trimmed);
         if (!readability.CanRead)
@@ -429,6 +431,34 @@ public sealed class DecryptService(
         }
 
         return value;
+    }
+
+    public static string NormalizeJwtSigningKey(string value)
+    {
+        var normalized = value;
+        var trimmed = value.Trim();
+
+        if (trimmed.Length >= 2 &&
+            ((trimmed[0] == '"' && trimmed[^1] == '"') ||
+             (trimmed[0] == '\'' && trimmed[^1] == '\'')))
+        {
+            normalized = trimmed[1..^1];
+        }
+        else
+        {
+            normalized = trimmed;
+        }
+
+        if (normalized.Contains("\\n", StringComparison.Ordinal) &&
+            normalized.Contains("BEGIN", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized
+                .Replace("\\r\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\r", "\r", StringComparison.Ordinal);
+        }
+
+        return normalized;
     }
 
     private static string SerializeJsonObject(IEnumerable<KeyValuePair<string, object>> values)

@@ -14,6 +14,7 @@
     <TrimMode>link</TrimMode>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
     <NoWarn>$(NoWarn);IL2104</NoWarn>
   </PropertyGroup>
 
@@ -30,13 +31,15 @@
     <Content Include="..\appsettings.json" Condition="Exists('..\appsettings.json')">
       <Link>appsettings.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="..\TrimmerRoots.xml">
       <Link>TrimmerRoots.xml</Link>
     </Content>
     <None Include="..\appsettings.template.json">
       <Link>appsettings.template.json</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
     <TrimmerRootDescriptor Include="..\TrimmerRoots.xml" />
   </ItemGroup>

@@ -24,9 +24,42 @@ public partial class MainWindow : Window
         await _viewModel.InitializeAsync();
     }
 
-    private async void DecryptButton_Click(object sender, RoutedEventArgs e)
+    private async void AutoDetectButton_Click(object sender, RoutedEventArgs e)
     {
-        await _viewModel.DecryptAsync();
+        await _viewModel.AutoDetectAsync();
+    }
+
+    private async void CookieDecryptButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.DecryptCookieAsync();
+    }
+
+    private async void JwtInspectButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.InspectJwtAsync();
+    }
+
+    private async void JwtValidateButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.ValidateJwtAsync();
+    }
+
+    private async void PayloadDecryptButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.DecryptPayloadAsync();
+    }
+
+    private void CopyPayloadButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(_viewModel.PayloadOutput))
+        {
+            Clipboard.SetText(_viewModel.PayloadOutput);
+        }
+    }
+
+    private void ClearPayloadButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.ClearPayload();
     }
 
     private static DecryptService CreateDecryptService()
