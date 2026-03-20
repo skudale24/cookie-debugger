@@ -8,21 +8,25 @@ namespace CookieDebugger.Commands;
 
 public sealed class HarCommand : Command<HarSettings>
 {
-    private readonly DebuggerService _debuggerService;
+    private readonly DecryptService _decryptService;
     private readonly ConsolePresenter _consolePresenter;
+    private readonly SecretResolver _secretResolver;
 
-    public HarCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter)
+    public HarCommand(DecryptService decryptService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
-        _debuggerService = debuggerService;
+        _decryptService = decryptService;
         _consolePresenter = consolePresenter;
+        _secretResolver = secretResolver;
     }
 
     public override int Execute(CommandContext context, HarSettings settings)
     {
         try
         {
-            var result = _debuggerService.InspectHar(settings.FilePath, settings.Environment);
-            _consolePresenter.WriteHarInspection(result);
+            var harInspection = InspectHarWithRetry(settings.FilePath, settings.Environment);
+            _consolePresenter.WriteHarInspection(
+                harInspection.Result,
+                value => _decryptService.TryDecryptClaimValue(value, harInspection.EncryptionKey));
             return 0;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or CryptographicException)
@@ -31,6 +35,21 @@ public sealed class HarCommand : Command<HarSettings>
                 ? $"Unable to decrypt the value. {ex.Message}"
                 : ex.Message);
             return -1;
+        }
+    }
+
+    private (HarDebugResult Result, string EncryptionKey) InspectHarWithRetry(string filePath, AppEnvironment environment)
+    {
+        var encryptionKey = _secretResolver.ResolveEncryptionKey();
+
+        try
+        {
+            return (_decryptService.InspectHar(filePath, environment, encryptionKey), encryptionKey);
+        }
+        catch (CryptographicException)
+        {
+            var promptedKey = _secretResolver.ResolveEncryptionKey(forcePrompt: true);
+            return (_decryptService.InspectHar(filePath, environment, promptedKey), promptedKey);
         }
     }
 }

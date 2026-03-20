@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CookieDebugger.Models;
@@ -6,7 +7,16 @@ namespace CookieDebugger.State;
 
 public sealed class UserStateStore
 {
-    private readonly string _stateFilePath = Path.Combine(Directory.GetCurrentDirectory(), "userstate.json");
+    private readonly string _stateFilePath;
+
+    public UserStateStore()
+    {
+        var appDataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DecryptTool");
+        Directory.CreateDirectory(appDataFolder);
+        _stateFilePath = Path.Combine(appDataFolder, "userstate.json");
+    }
 
     public async Task<UserState> LoadAsync()
     {

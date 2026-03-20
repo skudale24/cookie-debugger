@@ -1,9 +1,10 @@
 using CookieDebugger.Models;
+using CookieDebugger.Interfaces;
 using Microsoft.Extensions.Configuration;
 
 namespace CookieDebugger.Services;
 
-public sealed class AppSettingsProvider
+public sealed class AppSettingsProvider : IPassphraseProvider
 {
     public AppSettingsProvider(IConfiguration configuration)
     {

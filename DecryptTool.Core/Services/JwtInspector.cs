@@ -12,7 +12,7 @@ public sealed class JwtInspector
             throw new ArgumentException("Decrypted JWT is empty.");
         }
 
-        var normalizedJwt = DebuggerService.NormalizeJwtInput(jwt);
+        var normalizedJwt = DecryptService.NormalizeJwtInput(jwt);
         JwtSecurityToken token;
         try
         {

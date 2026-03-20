@@ -7,7 +7,7 @@ using Spectre.Console;
 
 namespace CookieDebugger.Services;
 
-public sealed class ConsolePresenter(DebuggerService debuggerService)
+public sealed class ConsolePresenter
 {
     public void WriteClearText(string clearText)
     {
@@ -27,7 +27,7 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
         AnsiConsole.Write(CreateJsonGrid(rawJwt.HeaderJson, rawJwt.PayloadJson, "Header JSON", "Payload JSON"));
     }
 
-    public void WriteHarInspection(HarDebugResult result)
+    public void WriteHarInspection(HarDebugResult result, Func<string, string> authValueTransformer)
     {
         AnsiConsole.Write(new Rule("[cyan]HAR Inspect[/]").LeftJustified());
         AnsiConsole.Write(CreateHarSummaryGrid(result));
@@ -46,7 +46,7 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
         WriteJsonComparisonSections(
             result.CookieDebug.DecryptedJwt,
             result.AuthorizationJwt,
-            debuggerService.TryDecryptClaimValue);
+            authValueTransformer);
 
         WriteTokenStatusComparisonTable(result.CookieDebug.Report, authReport);
     }

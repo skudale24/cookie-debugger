@@ -3,20 +3,37 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using CookieDebugger.Interfaces;
 using CookieDebugger.Models;
 using Microsoft.IdentityModel.Tokens;
 
 namespace CookieDebugger.Services;
 
-public sealed class DebuggerService(
-    AppSettingsProvider settingsProvider,
+public sealed class DecryptService(
+    IPassphraseProvider passphraseProvider,
     CookieParser cookieParser,
     HarFileParser harFileParser,
-    SecretResolver secretResolver,
     FingerprintDecryptor fingerprintDecryptor,
     JwtDecryptor jwtDecryptor,
     JwtInspector jwtInspector)
 {
+    public async Task<string> DecryptAsync(string cookie, string environment, string fingerprint)
+    {
+        var decrypted = await InspectCookieAsync(cookie, environment, fingerprint);
+        return decrypted.DecryptedJwt;
+    }
+
+    public Task<CookieDebugResult> InspectCookieAsync(string cookie, string environment, string fingerprint)
+    {
+        var parsedEnvironment = ParseEnvironment(environment);
+        return Task.FromResult(InspectCookie(cookie, fingerprint, parsedEnvironment));
+    }
+
+    public Task<CookieDebugResult> InspectCookieAsync(string cookie, AppEnvironment environment, string fingerprint)
+    {
+        return Task.FromResult(InspectCookie(cookie, fingerprint, environment));
+    }
+
     public CookieDebugResult InspectCookie(string cookieString, string fingerprint, AppEnvironment environment)
     {
         if (string.IsNullOrWhiteSpace(fingerprint))
@@ -30,7 +47,7 @@ public sealed class DebuggerService(
         }
 
         var encryptedJwt = cookieParser.ExtractEncryptedJwt(cookieString);
-        var decryptedJwt = jwtDecryptor.Decrypt(encryptedJwt, fingerprint, settingsProvider.GetPassPhrase(environment));
+        var decryptedJwt = jwtDecryptor.Decrypt(encryptedJwt, fingerprint, passphraseProvider.GetPassPhrase(environment));
 
         return new CookieDebugResult
         {
@@ -42,7 +59,7 @@ public sealed class DebuggerService(
         };
     }
 
-    public HarDebugResult InspectHar(string harFilePath, AppEnvironment environment)
+    public HarDebugResult InspectHar(string harFilePath, AppEnvironment environment, string encryptionKey)
     {
         var normalizedPath = NormalizeDroppedPath(harFilePath);
         if (string.IsNullOrWhiteSpace(normalizedPath))
@@ -51,7 +68,7 @@ public sealed class DebuggerService(
         }
 
         var harExtraction = harFileParser.Extract(normalizedPath);
-        var fingerprint = DecryptWithEncryptionKeyRetry(harExtraction.EncryptedFingerprint);
+        var fingerprint = DecryptPayload(harExtraction.EncryptedFingerprint, encryptionKey);
 
         return new HarDebugResult
         {
@@ -302,48 +319,22 @@ public sealed class DebuggerService(
         };
     }
 
-    public string DecryptPayload(string encryptedText)
+    public string DecryptPayload(string encryptedText, string encryptionKey)
     {
         if (string.IsNullOrWhiteSpace(encryptedText))
         {
             throw new ArgumentException("Encrypted payload is required.");
         }
 
-        return DecryptWithEncryptionKeyRetry(encryptedText);
-    }
-
-    public string TryDecryptClaimValue(string rawValue)
-    {
-        if (string.IsNullOrWhiteSpace(rawValue))
-        {
-            return rawValue;
-        }
-
-        var encryptionKey = secretResolver.GetCachedOrEnvironmentEncryptionKey();
         if (string.IsNullOrWhiteSpace(encryptionKey))
         {
-            return rawValue;
+            throw new ArgumentException("Encryption key is required.");
         }
 
-        try
-        {
-            return fingerprintDecryptor.Decrypt(
-                rawValue,
-                encryptionKey,
-                encryptionKey);
-        }
-        catch (FormatException)
-        {
-            return rawValue;
-        }
-        catch (CryptographicException)
-        {
-            return rawValue;
-        }
-        catch (ArgumentException)
-        {
-            return rawValue;
-        }
+        return fingerprintDecryptor.Decrypt(
+            encryptedText,
+            encryptionKey,
+            encryptionKey);
     }
 
     public string TryDecryptClaimValue(string rawValue, string encryptionKey)
@@ -371,27 +362,6 @@ public sealed class DebuggerService(
         catch (ArgumentException)
         {
             return rawValue;
-        }
-    }
-
-    private string DecryptWithEncryptionKeyRetry(string encryptedText)
-    {
-        var encryptionKey = secretResolver.ResolveEncryptionKey();
-
-        try
-        {
-            return fingerprintDecryptor.Decrypt(
-                encryptedText,
-                encryptionKey,
-                encryptionKey);
-        }
-        catch (CryptographicException)
-        {
-            var promptedKey = secretResolver.ResolveEncryptionKey(forcePrompt: true);
-            return fingerprintDecryptor.Decrypt(
-                encryptedText,
-                promptedKey,
-                promptedKey);
         }
     }
 
@@ -425,6 +395,24 @@ public sealed class DebuggerService(
         }
 
         return value.Trim().Trim('"');
+    }
+
+    public static AppEnvironment ParseEnvironment(string? environment)
+    {
+        if (string.IsNullOrWhiteSpace(environment))
+        {
+            return AppEnvironment.Dev;
+        }
+
+        var normalized = environment.Trim();
+        if (normalized.Equals("Prod", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = nameof(AppEnvironment.Production);
+        }
+
+        return Enum.TryParse<AppEnvironment>(normalized, ignoreCase: true, out var parsed)
+            ? parsed
+            : throw new ArgumentException($"Unsupported environment '{environment}'. Expected Dev, Stage, or Production.");
     }
 
     public static string NormalizeJwtInput(string? input)

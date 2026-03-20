@@ -7,12 +7,12 @@ namespace CookieDebugger.Commands;
 
 public sealed class JwtDecodeCommand : Command<JwtDecodeSettings>
 {
-    private readonly DebuggerService _debuggerService;
+    private readonly DecryptService _decryptService;
     private readonly ConsolePresenter _consolePresenter;
 
-    public JwtDecodeCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter)
+    public JwtDecodeCommand(DecryptService decryptService, ConsolePresenter consolePresenter)
     {
-        _debuggerService = debuggerService;
+        _decryptService = decryptService;
         _consolePresenter = consolePresenter;
     }
 
@@ -20,7 +20,7 @@ public sealed class JwtDecodeCommand : Command<JwtDecodeSettings>
     {
         try
         {
-            var result = _debuggerService.InspectRawJwt(settings.Jwt);
+            var result = _decryptService.InspectRawJwt(settings.Jwt);
             _consolePresenter.WriteRawJwtDecode(result);
             return 0;
         }

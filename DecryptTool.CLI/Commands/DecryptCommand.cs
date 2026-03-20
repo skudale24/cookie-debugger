@@ -8,13 +8,13 @@ namespace CookieDebugger.Commands;
 
 public sealed class DecryptCommand : Command<DecryptSettings>
 {
-    private readonly DebuggerService _debuggerService;
+    private readonly DecryptService _decryptService;
     private readonly ConsolePresenter _consolePresenter;
     private readonly SecretResolver _secretResolver;
 
-    public DecryptCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
+    public DecryptCommand(DecryptService decryptService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
-        _debuggerService = debuggerService;
+        _decryptService = decryptService;
         _consolePresenter = consolePresenter;
         _secretResolver = secretResolver;
     }
@@ -41,12 +41,12 @@ public sealed class DecryptCommand : Command<DecryptSettings>
     {
         try
         {
-            return _debuggerService.InspectCookie(cookie, fingerprint, environment);
+            return _decryptService.InspectCookie(cookie, fingerprint, environment);
         }
         catch (CryptographicException)
         {
             var promptedFingerprint = _secretResolver.ResolveCookieFingerprint(forcePrompt: true);
-            return _debuggerService.InspectCookie(cookie, promptedFingerprint, environment);
+            return _decryptService.InspectCookie(cookie, promptedFingerprint, environment);
         }
     }
 }

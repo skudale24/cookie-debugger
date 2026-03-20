@@ -12,10 +12,26 @@ setx TOK_ENCRYPTION_KEY ********
 
 Open a new terminal after running `setx`.
 
+The repository is now split into a single solution with separate shared/core, CLI, and WPF projects:
+
+```text
+DecryptTool.sln
+|- DecryptTool.Core
+|- DecryptTool.CLI
+|- DecryptTool.UI
+```
+
 Create a local config file from the template:
 
 ```bash
 cp appsettings.template.json appsettings.json
+```
+
+Publish targets:
+
+```powershell
+dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj
+dotnet publish .\DecryptTool.UI\DecryptTool.UI.csproj
 ```
 
 PowerShell:
@@ -31,7 +47,7 @@ Then edit `appsettings.json` and replace the placeholder values with your real s
 ## CLI Usage
 
 ```bash
-dotnet run -- --help
+dotnet run --project .\DecryptTool.CLI -- --help
 ```
 
 Or after publishing:
@@ -142,22 +158,22 @@ dotnet build
 
 ## Publish
 
-Project publish settings are stored in `CookieDebugger.csproj`, so a release package can be created with:
+The CLI publish settings are stored in `DecryptTool.CLI/DecryptTool.CLI.csproj`, so a release package can be created with:
 
 ```bash
-dotnet publish -c Release
+dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj -c Release
 ```
 
 The published app will appear under:
 
 ```text
-bin/Release/net8.0/win-x64/publish/
+DecryptTool.CLI/bin/Release/net8.0/win-x64/publish/
 ```
 
 The published executable is:
 
 ```text
-bin/Release/net8.0/win-x64/publish/tok.exe
+DecryptTool.CLI/bin/Release/net8.0/win-x64/publish/tok.exe
 ```
 
 ## Build Script
@@ -174,14 +190,14 @@ PowerShell profile:
 
 ```powershell
 function build-cookie {
-    dotnet publish -c Release
+    dotnet publish .\DecryptTool.CLI\DecryptTool.CLI.csproj -c Release
 }
 ```
 
 Bash / Git Bash:
 
 ```bash
-alias buildcookie="dotnet publish -c Release"
+alias buildcookie="dotnet publish ./DecryptTool.CLI/DecryptTool.CLI.csproj -c Release"
 ```
 
 ## Publish This Folder To GitHub

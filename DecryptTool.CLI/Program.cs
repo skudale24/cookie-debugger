@@ -1,5 +1,6 @@
 using CookieDebugger.Commands;
 using CookieDebugger.Infrastructure;
+using CookieDebugger.Interfaces;
 using CookieDebugger.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,12 +15,13 @@ configuration
 
 services.AddSingleton<IConfiguration>(configuration);
 services.AddSingleton<AppSettingsProvider>();
+services.AddSingleton<IPassphraseProvider>(provider => provider.GetRequiredService<AppSettingsProvider>());
 services.AddSingleton<CookieParser>();
 services.AddSingleton<HarFileParser>();
 services.AddSingleton<FingerprintDecryptor>();
 services.AddSingleton<JwtDecryptor>();
 services.AddSingleton<JwtInspector>();
-services.AddSingleton<DebuggerService>();
+services.AddSingleton<DecryptService>();
 services.AddSingleton<ConsolePresenter>();
 services.AddSingleton<CompletionService>();
 services.AddSingleton<SecretResolver>();
@@ -44,7 +46,7 @@ app.Configure(config =>
         .WithExample(new[] { "inspect", "<jwt>" });
 
     config.AddCommand<JwtValidateCommand>("validate")
-        .WithDescription("Validate a raw JWT using --key, prompting securely if missing.")
+        .WithDescription("Validate a raw JWT using --key, prompting visibly if missing.")
         .WithExample(new[] { "validate", "<jwt>", "--key", "<key>" });
 
     config.AddBranch("completion", completion =>

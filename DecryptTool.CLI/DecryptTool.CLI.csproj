@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>tok</AssemblyName>
+    <RootNamespace>CookieDebugger</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -17,19 +18,27 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
-    <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.8.0" />
+    <ProjectReference Include="..\DecryptTool.Core\DecryptTool.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="appsettings.json" Condition="Exists('appsettings.json')">
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\appsettings.json" Condition="Exists('..\appsettings.json')">
+      <Link>appsettings.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
-    <None Update="appsettings.template.json">
+    <Content Include="..\TrimmerRoots.xml">
+      <Link>TrimmerRoots.xml</Link>
+    </Content>
+    <None Include="..\appsettings.template.json">
+      <Link>appsettings.template.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <TrimmerRootDescriptor Include="..\TrimmerRoots.xml" />
   </ItemGroup>
 
 </Project>

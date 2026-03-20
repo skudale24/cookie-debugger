@@ -7,13 +7,13 @@ namespace CookieDebugger.Commands;
 
 public sealed class JwtValidateCommand : Command<JwtValidateSettings>
 {
-    private readonly DebuggerService _debuggerService;
+    private readonly DecryptService _decryptService;
     private readonly ConsolePresenter _consolePresenter;
     private readonly SecretResolver _secretResolver;
 
-    public JwtValidateCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
+    public JwtValidateCommand(DecryptService decryptService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
-        _debuggerService = debuggerService;
+        _decryptService = decryptService;
         _consolePresenter = consolePresenter;
         _secretResolver = secretResolver;
     }
@@ -23,12 +23,12 @@ public sealed class JwtValidateCommand : Command<JwtValidateSettings>
         try
         {
             var signingKey = _secretResolver.ResolveJwtSigningKey(settings.Key);
-            var result = _debuggerService.ValidateRawJwt(settings.Jwt, signingKey);
+            var result = _decryptService.ValidateRawJwt(settings.Jwt, signingKey);
             _consolePresenter.WriteJwtValidation(result);
-            if (_debuggerService.HasEncryptedJwtClaims(result.Jwt))
+            if (_decryptService.HasEncryptedJwtClaims(result.Jwt))
             {
                 var encryptionKey = _secretResolver.GetCachedOrEnvironmentEncryptionKey();
-                var usedEnvKey = !string.IsNullOrWhiteSpace(encryptionKey) && _debuggerService.CanDecryptJwtClaims(result.Jwt, encryptionKey);
+                var usedEnvKey = !string.IsNullOrWhiteSpace(encryptionKey) && _decryptService.CanDecryptJwtClaims(result.Jwt, encryptionKey);
                 if (!usedEnvKey)
                 {
                     encryptionKey = _secretResolver.ResolveEncryptionKey(forcePrompt: true);
@@ -42,7 +42,7 @@ public sealed class JwtValidateCommand : Command<JwtValidateSettings>
                 var resolvedEncryptionKey = encryptionKey!;
                 _consolePresenter.WriteDecryptedPayloadValues(
                     result.Jwt,
-                    value => _debuggerService.TryDecryptClaimValue(value, resolvedEncryptionKey));
+                    value => _decryptService.TryDecryptClaimValue(value, resolvedEncryptionKey));
             }
 
             return result.CanRead && result.SignatureValid && result.IsLifetimeCurrentlyValid ? 0 : -1;

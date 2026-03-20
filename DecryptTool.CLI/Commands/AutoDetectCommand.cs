@@ -8,13 +8,13 @@ namespace CookieDebugger.Commands;
 
 public sealed class AutoDetectCommand : Command<AutoDetectSettings>
 {
-    private readonly DebuggerService _debuggerService;
+    private readonly DecryptService _decryptService;
     private readonly ConsolePresenter _consolePresenter;
     private readonly SecretResolver _secretResolver;
 
-    public AutoDetectCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
+    public AutoDetectCommand(DecryptService decryptService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
-        _debuggerService = debuggerService;
+        _decryptService = decryptService;
         _consolePresenter = consolePresenter;
         _secretResolver = secretResolver;
     }
@@ -23,25 +23,27 @@ public sealed class AutoDetectCommand : Command<AutoDetectSettings>
     {
         try
         {
-            var normalizedInput = DebuggerService.NormalizeDroppedPath(settings.Input);
+            var normalizedInput = DecryptService.NormalizeDroppedPath(settings.Input);
             if (IsHarInput(normalizedInput))
             {
-                var harResult = _debuggerService.InspectHar(normalizedInput, settings.Environment);
-                _consolePresenter.WriteHarInspection(harResult);
+                var harInspection = InspectHarWithRetry(normalizedInput, settings.Environment);
+                _consolePresenter.WriteHarInspection(
+                    harInspection.Result,
+                    value => _decryptService.TryDecryptClaimValue(value, harInspection.EncryptionKey));
                 return 0;
             }
 
-            var readability = _debuggerService.CanReadJwt(normalizedInput);
+            var readability = _decryptService.CanReadJwt(normalizedInput);
             if (readability.CanRead)
             {
-                var jwtResult = _debuggerService.InspectRawJwt(normalizedInput);
+                var jwtResult = _decryptService.InspectRawJwt(normalizedInput);
                 _consolePresenter.WriteRawJwtInspection(jwtResult);
                 return 0;
             }
 
-            if (_debuggerService.LooksLikeEncryptedPayload(normalizedInput))
+            if (_decryptService.LooksLikeEncryptedPayload(normalizedInput))
             {
-                var clearText = _debuggerService.DecryptPayload(normalizedInput);
+                var clearText = DecryptPayloadWithRetry(normalizedInput);
                 _consolePresenter.WriteClearText(clearText);
                 return 0;
             }
@@ -64,12 +66,42 @@ public sealed class AutoDetectCommand : Command<AutoDetectSettings>
     {
         try
         {
-            return _debuggerService.InspectCookie(cookie, fingerprint, environment);
+            return _decryptService.InspectCookie(cookie, fingerprint, environment);
         }
         catch (CryptographicException)
         {
             var promptedFingerprint = _secretResolver.ResolveCookieFingerprint(forcePrompt: true);
-            return _debuggerService.InspectCookie(cookie, promptedFingerprint, environment);
+            return _decryptService.InspectCookie(cookie, promptedFingerprint, environment);
+        }
+    }
+
+    private (HarDebugResult Result, string EncryptionKey) InspectHarWithRetry(string filePath, AppEnvironment environment)
+    {
+        var encryptionKey = _secretResolver.ResolveEncryptionKey();
+
+        try
+        {
+            return (_decryptService.InspectHar(filePath, environment, encryptionKey), encryptionKey);
+        }
+        catch (CryptographicException)
+        {
+            var promptedKey = _secretResolver.ResolveEncryptionKey(forcePrompt: true);
+            return (_decryptService.InspectHar(filePath, environment, promptedKey), promptedKey);
+        }
+    }
+
+    private string DecryptPayloadWithRetry(string encryptedPayload)
+    {
+        var encryptionKey = _secretResolver.ResolveEncryptionKey();
+
+        try
+        {
+            return _decryptService.DecryptPayload(encryptedPayload, encryptionKey);
+        }
+        catch (CryptographicException)
+        {
+            var promptedKey = _secretResolver.ResolveEncryptionKey(forcePrompt: true);
+            return _decryptService.DecryptPayload(encryptedPayload, promptedKey);
         }
     }
 

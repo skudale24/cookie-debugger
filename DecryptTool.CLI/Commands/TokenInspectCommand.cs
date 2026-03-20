@@ -7,13 +7,13 @@ namespace CookieDebugger.Commands;
 
 public sealed class JwtInspectCommand : Command<JwtInspectSettings>
 {
-    private readonly DebuggerService _debuggerService;
+    private readonly DecryptService _decryptService;
     private readonly ConsolePresenter _consolePresenter;
     private readonly SecretResolver _secretResolver;
 
-    public JwtInspectCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
+    public JwtInspectCommand(DecryptService decryptService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
-        _debuggerService = debuggerService;
+        _decryptService = decryptService;
         _consolePresenter = consolePresenter;
         _secretResolver = secretResolver;
     }
@@ -22,12 +22,12 @@ public sealed class JwtInspectCommand : Command<JwtInspectSettings>
     {
         try
         {
-            var result = _debuggerService.InspectRawJwt(settings.Jwt);
+            var result = _decryptService.InspectRawJwt(settings.Jwt);
             _consolePresenter.WriteRawJwtInspection(result);
-            if (_debuggerService.HasEncryptedJwtClaims(result.Jwt))
+            if (_decryptService.HasEncryptedJwtClaims(result.Jwt))
             {
                 var encryptionKey = _secretResolver.GetCachedOrEnvironmentEncryptionKey();
-                var usedEnvKey = !string.IsNullOrWhiteSpace(encryptionKey) && _debuggerService.CanDecryptJwtClaims(result.Jwt, encryptionKey);
+                var usedEnvKey = !string.IsNullOrWhiteSpace(encryptionKey) && _decryptService.CanDecryptJwtClaims(result.Jwt, encryptionKey);
                 if (!usedEnvKey)
                 {
                     encryptionKey = _secretResolver.ResolveEncryptionKey(forcePrompt: true);
@@ -41,7 +41,7 @@ public sealed class JwtInspectCommand : Command<JwtInspectSettings>
                 var resolvedEncryptionKey = encryptionKey!;
                 _consolePresenter.WriteDecryptedPayloadValues(
                     result.Jwt,
-                    value => _debuggerService.TryDecryptClaimValue(value, resolvedEncryptionKey));
+                    value => _decryptService.TryDecryptClaimValue(value, resolvedEncryptionKey));
             }
 
             return 0;
