@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Windows.Media;
 using CookieDebugger.Models;
@@ -11,6 +12,11 @@ namespace DecryptTool.UI.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
+    private const string DefaultJwtInspectHeader = "{}";
+    private const string DefaultJwtInspectPayload = "{}";
+    private const string DefaultJwtInspectDecryptedPayload = "Claims are already in plain text.";
+    private const string DefaultJwtValidateSummary = "Validation has not been run yet.";
+    private const string DefaultComparePayloadJson = "{}";
     private static readonly Brush SuccessBrush = CreateBrush("#2F7D32");
     private static readonly Brush WarningBrush = CreateBrush("#C48A00");
     private static readonly Brush ErrorBrush = CreateBrush("#B23A2B");
@@ -20,6 +26,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private readonly DecryptService _decryptService;
     private readonly UserStateStore _userStateStore;
+    private WorkflowAction _currentAction;
     private int _selectedTabIndex;
     private bool _isBusy;
     private string _statusText = "Ready";
@@ -30,17 +37,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _fingerprint = string.Empty;
     private AppEnvironment _selectedEnvironment = AppEnvironment.Dev;
     private string _cookieOutput = string.Empty;
+    private string _lastCookieJwt = string.Empty;
 
     private string _jwtInspectInput = string.Empty;
-    private string _jwtInspectHeader = "{}";
-    private string _jwtInspectPayload = "{}";
+    private string _jwtInspectEncryptionKey = string.Empty;
+    private string _jwtInspectHeader = DefaultJwtInspectHeader;
+    private string _jwtInspectPayload = DefaultJwtInspectPayload;
+    private string _jwtInspectDecryptedPayload = DefaultJwtInspectDecryptedPayload;
+    private string _jwtInspectKeySource = $"Env fallback: {EncryptionEnvVar}";
     private string _jwtInspectExpiryBadgeText = "⚠ Not inspected";
     private Brush _jwtInspectExpiryBadgeBrush = WarningBrush;
     private string _jwtInspectExpiryDetail = "No token inspected yet.";
 
     private string _jwtValidateInput = string.Empty;
     private string _jwtValidateKey = string.Empty;
-    private string _jwtValidateSummary = "Validation has not been run yet.";
+    private string _jwtValidateSummary = DefaultJwtValidateSummary;
     private string _jwtValidateKeySource = "Manual input";
     private string _jwtValidateBadgeText = "⚠ Not validated";
     private Brush _jwtValidateBadgeBrush = WarningBrush;
@@ -49,6 +60,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _payloadEncryptionKey = string.Empty;
     private string _payloadOutput = string.Empty;
     private string _payloadKeySource = $"Env fallback: {EncryptionEnvVar}";
+
+    private string _compareCookieJwt = string.Empty;
+    private string _compareAuthJwt = string.Empty;
+    private string _compareSearchText = string.Empty;
+    private bool _showDifferencesOnly;
+    private IReadOnlyList<CompareClaimRowViewModel> _allCompareRows = Array.Empty<CompareClaimRowViewModel>();
+    private IReadOnlyList<CompareClaimRowViewModel> _compareRows = Array.Empty<CompareClaimRowViewModel>();
+    private string _compareCookiePayload = DefaultComparePayloadJson;
+    private string _compareAuthPayloadEncrypted = DefaultComparePayloadJson;
+    private string _compareAuthPayloadDecrypted = DefaultComparePayloadJson;
 
     public MainWindowViewModel(DecryptService decryptService, UserStateStore userStateStore)
     {
@@ -91,6 +112,37 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public Brush LightTextBrushValue => LightTextBrush;
+
+    public string CookieActionText => _currentAction == WorkflowAction.Cookie && IsBusy
+        ? "Decoding..."
+        : !string.IsNullOrWhiteSpace(CookieOutput)
+            ? "Refresh Result"
+            : "Show Cookie Data";
+
+    public string InspectActionText => _currentAction == WorkflowAction.Inspect && IsBusy
+        ? "Loading..."
+        : (!string.Equals(JwtInspectHeader, DefaultJwtInspectHeader, StringComparison.Ordinal) ||
+           !string.Equals(JwtInspectPayload, DefaultJwtInspectPayload, StringComparison.Ordinal))
+            ? "Refresh"
+            : "Show Token Details";
+
+    public string PayloadActionText => _currentAction == WorkflowAction.Payload && IsBusy
+        ? "Decoding..."
+        : !string.IsNullOrWhiteSpace(PayloadOutput)
+            ? "Refresh Result"
+            : "Decode Payload";
+
+    public string CompareActionText => _currentAction == WorkflowAction.Compare && IsBusy
+        ? "Comparing..."
+        : CompareRows.Count > 0
+            ? "Refresh Comparison"
+            : "Compare Tokens";
+
+    public string ValidateActionText => _currentAction == WorkflowAction.Validate && IsBusy
+        ? "Checking..."
+        : !string.Equals(JwtValidateSummary, DefaultJwtValidateSummary, StringComparison.Ordinal)
+            ? "Refresh Status"
+            : "Check Token Status";
 
     public string AutoDetectInput
     {
@@ -152,10 +204,36 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _jwtInspectHeader, value);
     }
 
+    public string JwtInspectEncryptionKey
+    {
+        get => _jwtInspectEncryptionKey;
+        set
+        {
+            if (SetField(ref _jwtInspectEncryptionKey, value))
+            {
+                JwtInspectKeySource = string.IsNullOrWhiteSpace(value)
+                    ? (HasEnvironmentEncryptionKey() ? $"Using {EncryptionEnvVar}" : $"Env fallback: {EncryptionEnvVar}")
+                    : "Manual input";
+            }
+        }
+    }
+
     public string JwtInspectPayload
     {
         get => _jwtInspectPayload;
         private set => SetField(ref _jwtInspectPayload, value);
+    }
+
+    public string JwtInspectDecryptedPayload
+    {
+        get => _jwtInspectDecryptedPayload;
+        private set => SetField(ref _jwtInspectDecryptedPayload, value);
+    }
+
+    public string JwtInspectKeySource
+    {
+        get => _jwtInspectKeySource;
+        private set => SetField(ref _jwtInspectKeySource, value);
     }
 
     public string JwtInspectExpiryBadgeText
@@ -270,6 +348,78 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _payloadKeySource, value);
     }
 
+    public string CompareCookieJwt
+    {
+        get => _compareCookieJwt;
+        set
+        {
+            if (SetField(ref _compareCookieJwt, value))
+            {
+                RaiseCommandState();
+            }
+        }
+    }
+
+    public string CompareAuthJwt
+    {
+        get => _compareAuthJwt;
+        set
+        {
+            if (SetField(ref _compareAuthJwt, value))
+            {
+                RaiseCommandState();
+            }
+        }
+    }
+
+    public string CompareSearchText
+    {
+        get => _compareSearchText;
+        set
+        {
+            if (SetField(ref _compareSearchText, value))
+            {
+                RefreshCompareRows();
+            }
+        }
+    }
+
+    public bool ShowDifferencesOnly
+    {
+        get => _showDifferencesOnly;
+        set
+        {
+            if (SetField(ref _showDifferencesOnly, value))
+            {
+                RefreshCompareRows();
+            }
+        }
+    }
+
+    public IReadOnlyList<CompareClaimRowViewModel> CompareRows
+    {
+        get => _compareRows;
+        private set => SetField(ref _compareRows, value);
+    }
+
+    public string CompareAuthPayloadEncrypted
+    {
+        get => _compareAuthPayloadEncrypted;
+        private set => SetField(ref _compareAuthPayloadEncrypted, value);
+    }
+
+    public string CompareCookiePayload
+    {
+        get => _compareCookiePayload;
+        private set => SetField(ref _compareCookiePayload, value);
+    }
+
+    public string CompareAuthPayloadDecrypted
+    {
+        get => _compareAuthPayloadDecrypted;
+        private set => SetField(ref _compareAuthPayloadDecrypted, value);
+    }
+
     public bool CanDecryptCookie => !IsBusy &&
                                      !string.IsNullOrWhiteSpace(CookieInput) &&
                                      !string.IsNullOrWhiteSpace(Fingerprint);
@@ -290,6 +440,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                                    !string.IsNullOrWhiteSpace(PayloadEncryptionKey) ||
                                    !string.IsNullOrWhiteSpace(PayloadOutput);
 
+    public bool CanCompareTokens => !IsBusy &&
+                                     !string.IsNullOrWhiteSpace(CompareCookieJwt) &&
+                                     !string.IsNullOrWhiteSpace(CompareAuthJwt);
+
+    public bool CanSendCookieToCompare => !string.IsNullOrWhiteSpace(_lastCookieJwt);
+
+    public bool CanSendInspectToCompare => !string.IsNullOrWhiteSpace(JwtInspectInput);
+
+    public bool CanCopyCompareCookieJson => !string.IsNullOrWhiteSpace(CompareCookiePayload);
+
+    public bool CanCopyCompareJson => !string.IsNullOrWhiteSpace(CompareAuthPayloadDecrypted);
+
+    public bool CanCopyCompareDiff => CompareRows.Count > 0;
+
     public async Task InitializeAsync()
     {
         var state = await _userStateStore.LoadAsync();
@@ -297,6 +461,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         CookieInput = state.LastEncryptedCookie;
         SelectedEnvironment = DecryptService.ParseEnvironment(state.LastEnvironment);
         CookieOutput = PrettyJsonOrRaw(state.LastDecryptedJwt);
+        _lastCookieJwt = state.LastDecryptedJwt;
+        JwtInspectKeySource = HasEnvironmentEncryptionKey()
+            ? $"Using {EncryptionEnvVar}"
+            : $"Env fallback: {EncryptionEnvVar}";
         PayloadKeySource = HasEnvironmentEncryptionKey()
             ? $"Using {EncryptionEnvVar}"
             : $"Env fallback: {EncryptionEnvVar}";
@@ -331,7 +499,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         if (_decryptService.LooksLikeEncryptedPayload(input))
         {
-            SelectedTabIndex = 3;
+            SelectedTabIndex = 2;
             PayloadInput = input;
             SetStatus(NeutralBrush, "Encrypted payload detected. Routed to Payload Decrypt.");
             return;
@@ -350,12 +518,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        await RunBusyAsync(async () =>
+        await RunBusyAsync(WorkflowAction.Cookie, async () =>
         {
             var result = await _decryptService.InspectCookieAsync(CookieInput, SelectedEnvironment, Fingerprint);
             var jwt = _decryptService.InspectRawJwt(result.DecryptedJwt);
+            _lastCookieJwt = result.DecryptedJwt;
             CookieOutput = PrettyJsonOrRaw(jwt.PayloadJson);
             await SaveSharedStateAsync(result.DecryptedJwt);
+            RaiseCommandState();
             SetStatus(result.Report.IsExpired ? WarningBrush : SuccessBrush,
                 result.Report.IsExpired ? "⚠ Decrypted, but the token is expired." : "✔ Decrypted successfully.");
         });
@@ -369,26 +539,60 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        await RunBusyAsync(() =>
+        await RunBusyAsync(WorkflowAction.Inspect, () =>
         {
             var result = _decryptService.InspectRawJwt(JwtInspectInput);
             JwtInspectHeader = PrettyJsonOrRaw(result.HeaderJson);
             JwtInspectPayload = PrettyJsonOrRaw(result.PayloadJson);
             JwtInspectExpiryDetail = $"exp: {result.Report.ExpiresReadable}";
+            JwtInspectDecryptedPayload = DefaultJwtInspectDecryptedPayload;
+
+            var hasEncryptedClaims = _decryptService.HasEncryptedJwtClaims(result.Jwt);
+            var claimsDecrypted = false;
+            var hasInspectKey = false;
+            if (hasEncryptedClaims)
+            {
+                var encryptionKey = ResolveOptionalEncryptionKey(JwtInspectEncryptionKey, value => JwtInspectKeySource = value);
+                hasInspectKey = !string.IsNullOrWhiteSpace(encryptionKey);
+                if (!string.IsNullOrWhiteSpace(encryptionKey) && _decryptService.CanDecryptJwtClaims(result.Jwt, encryptionKey))
+                {
+                    JwtInspectDecryptedPayload = PrettyJsonOrRaw(_decryptService.DecryptJwtPayload(result.Jwt, encryptionKey));
+                    claimsDecrypted = true;
+                }
+                else
+                {
+                    JwtInspectDecryptedPayload = "Claims look encrypted. Add an encryption key or set TOK_ENCRYPTION_KEY to see decrypted values.";
+                }
+            }
 
             if (result.Report.IsExpired)
             {
                 JwtInspectExpiryBadgeText = "⚠ Expired";
                 JwtInspectExpiryBadgeBrush = WarningBrush;
-                SetStatus(WarningBrush, "⚠ JWT inspected. The token is expired.");
+                SetStatus(
+                    WarningBrush,
+                    hasEncryptedClaims && !claimsDecrypted
+                        ? (hasInspectKey
+                            ? "⚠ JWT inspected and expired, but the encryption key did not decrypt the claims."
+                            : "⚠ JWT inspected and expired, but encrypted claims were not decrypted.")
+                        : "⚠ JWT inspected. The token is expired.");
             }
             else
             {
                 JwtInspectExpiryBadgeText = "✔ Valid";
                 JwtInspectExpiryBadgeBrush = SuccessBrush;
-                SetStatus(SuccessBrush, "✔ JWT inspected successfully.");
+                SetStatus(
+                    hasEncryptedClaims && !claimsDecrypted
+                        ? WarningBrush
+                        : SuccessBrush,
+                    hasEncryptedClaims && !claimsDecrypted
+                        ? (hasInspectKey
+                            ? "⚠ JWT inspected successfully, but the encryption key did not decrypt the claims."
+                            : "⚠ JWT inspected successfully, but encrypted claims were not decrypted.")
+                        : "✔ JWT inspected successfully.");
             }
 
+            RaiseCommandState();
             return Task.CompletedTask;
         });
     }
@@ -401,7 +605,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        await RunBusyAsync(() =>
+        await RunBusyAsync(WorkflowAction.Validate, () =>
         {
             var result = _decryptService.ValidateRawJwt(JwtValidateInput, JwtValidateKey);
             JwtValidateSummary = string.Join(Environment.NewLine, result.Messages);
@@ -438,7 +642,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        await RunBusyAsync(() =>
+        await RunBusyAsync(WorkflowAction.Payload, () =>
         {
             var encryptionKey = ResolvePayloadKey();
             var result = _decryptService.DecryptPayload(PayloadInput, encryptionKey);
@@ -446,6 +650,76 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             SetStatus(SuccessBrush, "✔ Decrypted successfully.");
             return Task.CompletedTask;
         });
+    }
+
+    public async Task CompareTokensAsync()
+    {
+        if (!CanCompareTokens)
+        {
+            SetStatus(ErrorBrush, "❌ Cookie JWT and Auth JWT are both required.");
+            return;
+        }
+
+        await RunBusyAsync(WorkflowAction.Compare, async () =>
+        {
+            var result = await _decryptService.CompareAsync(
+                CompareCookieJwt,
+                CompareAuthJwt,
+                SelectedEnvironment.ToString(),
+                Fingerprint);
+
+            _allCompareRows = result.Differences
+                .Select(diff => new CompareClaimRowViewModel(diff))
+                .ToList();
+            RefreshCompareRows();
+
+            CompareCookiePayload = PrettyJsonOrRaw(result.CookiePayloadJson);
+            CompareAuthPayloadEncrypted = PrettyJsonOrRaw(result.AuthPayloadJson);
+            CompareAuthPayloadDecrypted = PrettyJsonOrRaw(result.AuthDecryptedPayloadJson);
+
+            if (result.AuthPayloadWasAlreadyPlainText)
+            {
+                SetStatus(NeutralBrush, "ℹ Payload is already in plain text.");
+            }
+            else if (result.AuthPayloadDecryptionFailed)
+            {
+                SetStatus(ErrorBrush, "❌ Unable to decrypt auth payload. Check fingerprint and environment.");
+            }
+            else if (_allCompareRows.Any(row => row.Status != "Match"))
+            {
+                SetStatus(WarningBrush, "⚠ Comparison complete. Differences found.");
+            }
+            else
+            {
+                SetStatus(SuccessBrush, "✔ Comparison complete. All claims match.");
+            }
+
+            RaiseCommandState();
+        });
+    }
+
+    public void SendCookieToCompare()
+    {
+        if (string.IsNullOrWhiteSpace(_lastCookieJwt))
+        {
+            return;
+        }
+
+        CompareCookieJwt = _lastCookieJwt;
+        SelectedTabIndex = 3;
+        SetStatus(NeutralBrush, "Cookie JWT sent to Compare Tokens.");
+    }
+
+    public void SendInspectToCompare()
+    {
+        if (string.IsNullOrWhiteSpace(JwtInspectInput))
+        {
+            return;
+        }
+
+        CompareAuthJwt = DecryptService.NormalizeJwtInput(JwtInspectInput);
+        SelectedTabIndex = 3;
+        SetStatus(NeutralBrush, "JWT sent to Compare Tokens.");
     }
 
     public void ClearPayload()
@@ -459,6 +733,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         SetStatus(NeutralBrush, "Payload tab cleared.");
     }
 
+    public string BuildCompareDiffReport()
+    {
+        var builder = new StringBuilder();
+        foreach (var row in CompareRows)
+        {
+            builder.AppendLine($"{row.StatusText} {row.Claim}");
+            builder.AppendLine($"Cookie: {row.CookieValue}");
+            builder.AppendLine($"Auth: {row.AuthValue}");
+            builder.AppendLine();
+        }
+
+        return builder.ToString().Trim();
+    }
+
     private async Task SaveSharedStateAsync(string decryptedJwt)
     {
         await _userStateStore.SaveAsync(new UserState
@@ -470,15 +758,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         });
     }
 
-    private async Task RunBusyAsync(Func<Task> operation)
+    private async Task RunBusyAsync(WorkflowAction action, Func<Task> operation)
     {
         if (IsBusy)
         {
             return;
         }
 
+        _currentAction = action;
         IsBusy = true;
         SetStatus(NeutralBrush, "Decrypting...");
+        RaiseActionTextState();
 
         try
         {
@@ -490,8 +780,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         finally
         {
+            _currentAction = WorkflowAction.None;
             IsBusy = false;
+            RaiseActionTextState();
         }
+    }
+
+    private void RefreshCompareRows()
+    {
+        IEnumerable<CompareClaimRowViewModel> rows = _allCompareRows;
+
+        if (ShowDifferencesOnly)
+        {
+            rows = rows.Where(row => row.Status != "Match");
+        }
+
+        if (!string.IsNullOrWhiteSpace(CompareSearchText))
+        {
+            rows = rows.Where(row =>
+                row.Claim.Contains(CompareSearchText, StringComparison.OrdinalIgnoreCase) ||
+                row.CookieValue.Contains(CompareSearchText, StringComparison.OrdinalIgnoreCase) ||
+                row.AuthValue.Contains(CompareSearchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        CompareRows = rows.ToList();
+        RaiseCommandState();
     }
 
     private void SetStatus(Brush brush, string text)
@@ -502,20 +815,32 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private string ResolvePayloadKey()
     {
-        if (!string.IsNullOrWhiteSpace(PayloadEncryptionKey))
+        var resolved = ResolveOptionalEncryptionKey(PayloadEncryptionKey, value => PayloadKeySource = value);
+        if (!string.IsNullOrWhiteSpace(resolved))
         {
-            PayloadKeySource = "Manual input";
-            return PayloadEncryptionKey.Trim();
+            return resolved;
+        }
+
+        throw new ArgumentException($"An encryption key is required. Set {EncryptionEnvVar} or enter one manually.");
+    }
+
+    private string? ResolveOptionalEncryptionKey(string manualValue, Action<string>? updateSource)
+    {
+        if (!string.IsNullOrWhiteSpace(manualValue))
+        {
+            updateSource?.Invoke("Manual input");
+            return manualValue.Trim();
         }
 
         var environmentValue = Environment.GetEnvironmentVariable(EncryptionEnvVar);
         if (!string.IsNullOrWhiteSpace(environmentValue))
         {
-            PayloadKeySource = $"Using {EncryptionEnvVar}";
+            updateSource?.Invoke($"Using {EncryptionEnvVar}");
             return environmentValue.Trim();
         }
 
-        throw new ArgumentException($"An encryption key is required. Set {EncryptionEnvVar} or enter one manually.");
+        updateSource?.Invoke($"Env fallback: {EncryptionEnvVar}");
+        return null;
     }
 
     private bool HasEnvironmentEncryptionKey()
@@ -583,12 +908,75 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanDecryptPayload));
         OnPropertyChanged(nameof(CanCopyPayload));
         OnPropertyChanged(nameof(CanClearPayload));
+        OnPropertyChanged(nameof(CanCompareTokens));
+        OnPropertyChanged(nameof(CanSendCookieToCompare));
+        OnPropertyChanged(nameof(CanSendInspectToCompare));
+        OnPropertyChanged(nameof(CanCopyCompareCookieJson));
+        OnPropertyChanged(nameof(CanCopyCompareJson));
+        OnPropertyChanged(nameof(CanCopyCompareDiff));
+        RaiseActionTextState();
+    }
+
+    private void RaiseActionTextState()
+    {
+        OnPropertyChanged(nameof(CookieActionText));
+        OnPropertyChanged(nameof(InspectActionText));
+        OnPropertyChanged(nameof(PayloadActionText));
+        OnPropertyChanged(nameof(CompareActionText));
+        OnPropertyChanged(nameof(ValidateActionText));
     }
 
     private void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+
+    private static Brush CreateBrush(string hex)
+    {
+        var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+        brush.Freeze();
+        return brush;
+    }
+}
+
+internal enum WorkflowAction
+{
+    None,
+    Cookie,
+    Inspect,
+    Payload,
+    Compare,
+    Validate
+}
+
+public sealed class CompareClaimRowViewModel
+{
+    public CompareClaimRowViewModel(ClaimDiff diff)
+    {
+        Claim = diff.Claim;
+        CookieValue = diff.CookieValue;
+        AuthValue = diff.AuthValue;
+        Status = diff.Status;
+
+        (StatusText, StatusBrush) = diff.Status switch
+        {
+            "Match" => ("✔ Match", CreateBrush("#2F7D32")),
+            "Missing" => ("❌ Missing", CreateBrush("#B23A2B")),
+            _ => ("⚠ Different", CreateBrush("#C48A00"))
+        };
+    }
+
+    public string Claim { get; }
+
+    public string CookieValue { get; }
+
+    public string AuthValue { get; }
+
+    public string Status { get; }
+
+    public string StatusText { get; }
+
+    public Brush StatusBrush { get; }
 
     private static Brush CreateBrush(string hex)
     {

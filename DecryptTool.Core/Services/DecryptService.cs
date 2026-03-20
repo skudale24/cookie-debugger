@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -144,7 +145,7 @@ public sealed class DecryptService(
             return false;
         }
 
-        return cookieParser.LooksLikeEncryptedPayload(input);
+        return cookieParser.LooksLikeEncryptedPayload(NormalizeWrappedInput(input));
     }
 
     public bool HasEncryptedJwtClaims(string jwt)
@@ -323,7 +324,8 @@ public sealed class DecryptService(
 
     public string DecryptPayload(string encryptedText, string encryptionKey)
     {
-        if (string.IsNullOrWhiteSpace(encryptedText))
+        var normalizedPayload = NormalizeWrappedInput(encryptedText);
+        if (string.IsNullOrWhiteSpace(normalizedPayload))
         {
             throw new ArgumentException("Encrypted payload is required.");
         }
@@ -334,9 +336,30 @@ public sealed class DecryptService(
         }
 
         return fingerprintDecryptor.Decrypt(
-            encryptedText,
+            normalizedPayload,
             encryptionKey,
             encryptionKey);
+    }
+
+    public string DecryptJwtPayload(string jwt, string encryptionKey)
+    {
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            throw new ArgumentException("A JWT string is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(encryptionKey))
+        {
+            throw new ArgumentException("An encryption key is required.");
+        }
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(NormalizeJwtInput(jwt));
+        var decryptedPayload = token.Payload.ToDictionary(
+            pair => pair.Key,
+            pair => DecryptJwtValue(pair.Value, encryptionKey),
+            StringComparer.Ordinal);
+
+        return SerializeJsonObject(decryptedPayload);
     }
 
     public string TryDecryptClaimValue(string rawValue, string encryptionKey)
@@ -365,6 +388,107 @@ public sealed class DecryptService(
         {
             return rawValue;
         }
+    }
+
+    public async Task<TokenComparisonResult> CompareAsync(
+        string cookieJwt,
+        string authJwt,
+        string env,
+        string fp)
+    {
+        if (string.IsNullOrWhiteSpace(cookieJwt))
+        {
+            throw new ArgumentException("Cookie JWT is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(authJwt))
+        {
+            throw new ArgumentException("Auth JWT is required.");
+        }
+
+        var environment = ParseEnvironment(env);
+        var cookieInspection = ResolveCookieComparisonToken(cookieJwt, fp, environment);
+        var authInspection = InspectRawJwt(authJwt);
+        var cookieClaims = ExtractComparableClaims(cookieInspection.Jwt);
+        var authClaims = ExtractComparableClaims(authInspection.Jwt);
+
+        var decryptedAuthClaims = new Dictionary<string, string>(authClaims, StringComparer.OrdinalIgnoreCase);
+        var authPayloadWasAlreadyPlainText = true;
+        var authPayloadDecryptionFailed = false;
+
+        if (HasEncryptedJwtClaims(authInspection.Jwt))
+        {
+            authPayloadWasAlreadyPlainText = false;
+            var decryptedViaEnvKey = TryDecryptClaimsWithEnvironmentKey(authInspection.Jwt, authClaims);
+            if (decryptedViaEnvKey is not null)
+            {
+                decryptedAuthClaims = decryptedViaEnvKey;
+            }
+            else if (!string.IsNullOrWhiteSpace(fp))
+            {
+                var decryptedViaFingerprint = TryDecryptClaimsWithFingerprint(authInspection.Jwt, fp, environment, authClaims);
+                if (decryptedViaFingerprint is not null)
+                {
+                    decryptedAuthClaims = decryptedViaFingerprint;
+                }
+                else
+                {
+                    authPayloadDecryptionFailed = true;
+                }
+            }
+            else
+            {
+                authPayloadDecryptionFailed = true;
+            }
+        }
+
+        var differences = BuildClaimDiffs(cookieClaims, decryptedAuthClaims);
+
+        return await Task.FromResult(new TokenComparisonResult
+        {
+            CookiePayloadJson = PrettyJson(cookieInspection.PayloadJson),
+            AuthPayloadJson = PrettyJson(authInspection.PayloadJson),
+            AuthDecryptedPayloadJson = SerializeIndentedJson(
+                decryptedAuthClaims.ToDictionary(
+                    pair => pair.Key,
+                    pair => (object?)pair.Value,
+                    StringComparer.OrdinalIgnoreCase)),
+            AuthPayloadWasAlreadyPlainText = authPayloadWasAlreadyPlainText,
+            AuthPayloadDecryptionFailed = authPayloadDecryptionFailed,
+            Differences = differences
+        });
+    }
+
+    private RawJwtInspectionResult ResolveCookieComparisonToken(string cookieInput, string fingerprint, AppEnvironment environment)
+    {
+        if (CanReadJwt(cookieInput).CanRead)
+        {
+            return InspectRawJwt(cookieInput);
+        }
+
+        if (LooksLikeCookieEnvelope(cookieInput))
+        {
+            if (string.IsNullOrWhiteSpace(fingerprint))
+            {
+                throw new ArgumentException("A fingerprint is required when comparing an encrypted cookie against an auth JWT.");
+            }
+
+            var cookieResult = InspectCookie(cookieInput, fingerprint, environment);
+            return InspectRawJwt(cookieResult.DecryptedJwt);
+        }
+
+        return InspectRawJwt(cookieInput);
+    }
+
+    private static bool LooksLikeCookieEnvelope(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return false;
+        }
+
+        return input.Contains("|#**#|", StringComparison.Ordinal) ||
+               WebUtility.UrlDecode(input).Contains("|#**#|", StringComparison.Ordinal);
     }
 
     public static string NormalizeDroppedPath(string? input)
@@ -433,6 +557,24 @@ public sealed class DecryptService(
         return value;
     }
 
+    public static string NormalizeWrappedInput(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        var value = input.Trim();
+        if (value.Length >= 2 &&
+            ((value[0] == '"' && value[^1] == '"') ||
+             (value[0] == '\'' && value[^1] == '\'')))
+        {
+            value = value[1..^1].Trim();
+        }
+
+        return value;
+    }
+
     public static string NormalizeJwtSigningKey(string value)
     {
         var normalized = value;
@@ -461,7 +603,7 @@ public sealed class DecryptService(
         return normalized;
     }
 
-    private static string SerializeJsonObject(IEnumerable<KeyValuePair<string, object>> values)
+    private static string SerializeJsonObject(IEnumerable<KeyValuePair<string, object?>> values)
     {
         var dictionary = values.ToDictionary(
             pair => pair.Key,
@@ -502,6 +644,36 @@ public sealed class DecryptService(
                 StringComparer.Ordinal),
             JsonValueKind.Array => element.EnumerateArray().Select(NormalizeJsonElement).ToList(),
             JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.ToString(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => element.ToString()
+        };
+    }
+
+    private object? DecryptJwtValue(object? value, string encryptionKey)
+    {
+        return value switch
+        {
+            null => null,
+            string stringValue => TryDecryptClaimValue(stringValue, encryptionKey),
+            JsonElement jsonElement => DecryptJwtJsonElement(jsonElement, encryptionKey),
+            IEnumerable<object?> enumerable => enumerable.Select(item => DecryptJwtValue(item, encryptionKey)).ToList(),
+            _ => value
+        };
+    }
+
+    private object? DecryptJwtJsonElement(JsonElement element, string encryptionKey)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => element.EnumerateObject().ToDictionary(
+                property => property.Name,
+                property => DecryptJwtJsonElement(property.Value, encryptionKey),
+                StringComparer.Ordinal),
+            JsonValueKind.Array => element.EnumerateArray().Select(item => DecryptJwtJsonElement(item, encryptionKey)).ToList(),
+            JsonValueKind.String => TryDecryptClaimValue(element.GetString() ?? string.Empty, encryptionKey),
             JsonValueKind.Number => element.ToString(),
             JsonValueKind.True => true,
             JsonValueKind.False => false,
@@ -665,5 +837,176 @@ public sealed class DecryptService(
                 writer.WriteStringValue(value.ToString());
                 return;
         }
+    }
+
+    private Dictionary<string, string>? TryDecryptClaimsWithEnvironmentKey(string jwt, IReadOnlyDictionary<string, string> authClaims)
+    {
+        var encryptionKey = Environment.GetEnvironmentVariable("TOK_ENCRYPTION_KEY");
+        if (string.IsNullOrWhiteSpace(encryptionKey) || !CanDecryptJwtClaims(jwt, encryptionKey))
+        {
+            return null;
+        }
+
+        return authClaims.ToDictionary(
+            pair => pair.Key,
+            pair => NormalizeComparableValue(TryDecryptClaimValue(pair.Value, encryptionKey)),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private Dictionary<string, string>? TryDecryptClaimsWithFingerprint(
+        string jwt,
+        string fingerprint,
+        AppEnvironment environment,
+        IReadOnlyDictionary<string, string> authClaims)
+    {
+        var passphrase = passphraseProvider.GetPassPhrase(environment);
+        var changed = false;
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pair in authClaims)
+        {
+            var decrypted = TryDecryptClaimValueWithFingerprint(pair.Value, fingerprint, passphrase);
+            values[pair.Key] = NormalizeComparableValue(decrypted);
+            if (!string.Equals(decrypted, pair.Value, StringComparison.Ordinal))
+            {
+                changed = true;
+            }
+        }
+
+        return changed ? values : null;
+    }
+
+    private string TryDecryptClaimValueWithFingerprint(string rawValue, string fingerprint, string passphrase)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue) ||
+            string.IsNullOrWhiteSpace(fingerprint) ||
+            string.IsNullOrWhiteSpace(passphrase))
+        {
+            return rawValue;
+        }
+
+        try
+        {
+            return jwtDecryptor.Decrypt(rawValue, fingerprint, passphrase);
+        }
+        catch (FormatException)
+        {
+            return rawValue;
+        }
+        catch (CryptographicException)
+        {
+            return rawValue;
+        }
+        catch (ArgumentException)
+        {
+            return rawValue;
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string> ExtractComparableClaims(string jwt)
+    {
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(NormalizeJwtInput(jwt));
+        return token.Payload.ToDictionary(
+            pair => pair.Key,
+            pair => NormalizeComparableValue(NormalizeJwtValue(pair.Value)),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<ClaimDiff> BuildClaimDiffs(
+        IReadOnlyDictionary<string, string> cookieClaims,
+        IReadOnlyDictionary<string, string> authClaims)
+    {
+        var allClaims = cookieClaims.Keys
+            .Concat(authClaims.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase);
+
+        var diffs = new List<ClaimDiff>();
+        foreach (var claim in allClaims)
+        {
+            var hasCookie = cookieClaims.TryGetValue(claim, out var cookieValue);
+            var hasAuth = authClaims.TryGetValue(claim, out var authValue);
+            var normalizedCookie = hasCookie ? cookieValue! : "(missing)";
+            var normalizedAuth = hasAuth ? authValue! : "(missing)";
+
+            var status = !hasCookie || !hasAuth
+                ? "Missing"
+                : string.Equals(normalizedCookie, normalizedAuth, StringComparison.OrdinalIgnoreCase)
+                    ? "Match"
+                    : "Different";
+
+            diffs.Add(new ClaimDiff
+            {
+                Claim = claim,
+                CookieValue = normalizedCookie,
+                AuthValue = normalizedAuth,
+                Status = status
+            });
+        }
+
+        return diffs;
+    }
+
+    private static string NormalizeComparableValue(object? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        if (value is string stringValue)
+        {
+            return stringValue.Trim();
+        }
+
+        if (value is bool boolValue)
+        {
+            return boolValue.ToString();
+        }
+
+        if (value is not string && value is IEnumerable<object?> enumerable)
+        {
+            var values = enumerable
+                .Select(NormalizeComparableValue)
+                .OrderBy(item => item, StringComparer.OrdinalIgnoreCase);
+            return string.Join(", ", values);
+        }
+
+        return value.ToString()?.Trim() ?? string.Empty;
+    }
+
+    private static string PrettyJson(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(value);
+            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+        }
+        catch (JsonException)
+        {
+            return value;
+        }
+    }
+
+    private static string SerializeIndentedJson(IReadOnlyDictionary<string, object?> values)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+        {
+            Indented = true
+        }))
+        {
+            WriteJsonObject(writer, values);
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 }

@@ -23,7 +23,7 @@ public partial class App : Application
         TryWriteStartupLog(e.Exception);
         MessageBox.Show(
             e.Exception.ToString(),
-            "DecryptTool.UI Startup Error",
+            "Tok UI Startup Error",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
         e.Handled = true;
@@ -35,7 +35,7 @@ public partial class App : Application
         {
             var logPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DecryptTool",
+                "Tok UI",
                 "startup-error.log");
             Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
             File.WriteAllText(logPath, exception.ToString());

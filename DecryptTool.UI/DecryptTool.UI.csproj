@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <AssemblyName>Tok.UI</AssemblyName>
+    <Product>Tok UI</Product>
+    <Title>Tok UI</Title>
+    <ApplicationIcon>Assets\tok-ui.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
@@ -25,6 +29,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\tok-ui.png" />
+    <Content Include="Assets\tok-ui.ico" />
     <Content Include="..\appsettings.json" Condition="Exists('..\appsettings.json')">
       <Link>appsettings.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

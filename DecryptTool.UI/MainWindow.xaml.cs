@@ -49,6 +49,21 @@ public partial class MainWindow : Window
         await _viewModel.DecryptPayloadAsync();
     }
 
+    private async void CompareTokensButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.CompareTokensAsync();
+    }
+
+    private void SendCookieToCompareButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SendCookieToCompare();
+    }
+
+    private void SendInspectToCompareButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SendInspectToCompare();
+    }
+
     private void CopyPayloadButton_Click(object sender, RoutedEventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(_viewModel.PayloadOutput))
@@ -60,6 +75,31 @@ public partial class MainWindow : Window
     private void ClearPayloadButton_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.ClearPayload();
+    }
+
+    private void CopyCompareCookieButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(_viewModel.CompareCookiePayload))
+        {
+            Clipboard.SetText(_viewModel.CompareCookiePayload);
+        }
+    }
+
+    private void CopyCompareAuthButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(_viewModel.CompareAuthPayloadDecrypted))
+        {
+            Clipboard.SetText(_viewModel.CompareAuthPayloadDecrypted);
+        }
+    }
+
+    private void CopyCompareDiffButton_Click(object sender, RoutedEventArgs e)
+    {
+        var report = _viewModel.BuildCompareDiffReport();
+        if (!string.IsNullOrWhiteSpace(report))
+        {
+            Clipboard.SetText(report);
+        }
     }
 
     private static DecryptService CreateDecryptService()
