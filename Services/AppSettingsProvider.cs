@@ -33,11 +33,6 @@ public sealed class AppSettingsProvider
                 Dev = configuration["PassPhrases:Dev"] ?? string.Empty,
                 Stage = configuration["PassPhrases:Stage"] ?? string.Empty,
                 Production = configuration["PassPhrases:Production"] ?? string.Empty
-            },
-            FingerprintDecryption = new FingerprintDecryption
-            {
-                Key = configuration["FingerprintDecryption:Key"] ?? string.Empty,
-                IV = configuration["FingerprintDecryption:IV"] ?? string.Empty
             }
         };
     }

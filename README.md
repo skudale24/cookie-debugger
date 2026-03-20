@@ -49,13 +49,18 @@ tok har <file>
 How `tok <input>` auto-detects:
 
 - JWT -> `inspect`
-- Encrypted cookie -> `decrypt`
+- Encrypted cookie with delimiter -> `decrypt`
+- Raw encrypted payload -> decrypt to clear text using `TOK_ENCRYPTION_KEY`, prompting if missing
 - HAR file -> `har`
 
 Notes:
 
 - For encrypted cookie auto-detection, pass `--fp` and optionally `--env` alongside the input.
-- `validate` verifies the JWT signature using the supplied symmetric key and also checks lifetime validity.
+- Encrypted cookie decryption resolves the fingerprint in this order: `--fp`, then `TOK_COOKIE_FINGERPRINT`, then a hidden prompt. If the first fingerprint cannot decrypt the cookie, `tok` prompts again.
+- Raw encrypted payload auto-detection resolves the encryption key in this order: `TOK_ENCRYPTION_KEY`, then a hidden prompt. If the first key cannot decrypt the payload, `tok` prompts again.
+- `validate` resolves the JWT signing key in this order: `--key`, then a hidden prompt. You can pass `--key <value>` directly on the command line, including PEM-like values that start with hyphens.
+- JWT-oriented commands such as `inspect`, `decode`, `validate`, and `can-read` accept either a raw JWT or an `Authorization`-style value like `Bearer <token>`.
+- Secrets are never written back to environment variables automatically.
 - `har` defaults to `Dev` unless you pass `--env`.
 
 Examples:
@@ -64,6 +69,7 @@ Examples:
 tok eyJhbGciOi...
 tok "C:\Users\me\Downloads\session.har"
 tok <encrypted-cookie> --fp 1303908839 --env Dev
+tok <encrypted-payload>
 tok decrypt <encrypted-cookie> --fp 1303908839 --env Dev
 tok inspect <jwt>
 tok validate <jwt> --key my-signing-key

@@ -10,11 +10,13 @@ public sealed class AutoDetectCommand : Command<AutoDetectSettings>
 {
     private readonly DebuggerService _debuggerService;
     private readonly ConsolePresenter _consolePresenter;
+    private readonly SecretResolver _secretResolver;
 
-    public AutoDetectCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter)
+    public AutoDetectCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
         _debuggerService = debuggerService;
         _consolePresenter = consolePresenter;
+        _secretResolver = secretResolver;
     }
 
     public override int Execute(CommandContext context, AutoDetectSettings settings)
@@ -37,12 +39,15 @@ public sealed class AutoDetectCommand : Command<AutoDetectSettings>
                 return 0;
             }
 
-            if (string.IsNullOrWhiteSpace(settings.Fingerprint))
+            if (_debuggerService.LooksLikeEncryptedPayload(normalizedInput))
             {
-                return WriteCookieFingerprintError();
+                var clearText = _debuggerService.DecryptPayload(normalizedInput);
+                _consolePresenter.WriteClearText(clearText);
+                return 0;
             }
 
-            var cookieResult = _debuggerService.InspectCookie(normalizedInput, settings.Fingerprint, settings.Environment);
+            var fingerprint = _secretResolver.ResolveCookieFingerprint(settings.Fingerprint);
+            var cookieResult = InspectCookieWithRetry(normalizedInput, fingerprint, settings.Environment);
             _consolePresenter.WriteCookieInspection(cookieResult);
             return 0;
         }
@@ -55,10 +60,17 @@ public sealed class AutoDetectCommand : Command<AutoDetectSettings>
         }
     }
 
-    private int WriteCookieFingerprintError()
+    private CookieDebugResult InspectCookieWithRetry(string cookie, string fingerprint, AppEnvironment environment)
     {
-        _consolePresenter.WriteError("The input was not recognized as a JWT or HAR file. To treat it as an encrypted cookie, provide --fp and optionally --env.");
-        return -1;
+        try
+        {
+            return _debuggerService.InspectCookie(cookie, fingerprint, environment);
+        }
+        catch (CryptographicException)
+        {
+            var promptedFingerprint = _secretResolver.ResolveCookieFingerprint(forcePrompt: true);
+            return _debuggerService.InspectCookie(cookie, promptedFingerprint, environment);
+        }
     }
 
     private static bool IsHarInput(string input)

@@ -44,7 +44,7 @@ app.Configure(config =>
         .WithExample(new[] { "inspect", "<jwt>" });
 
     config.AddCommand<JwtValidateCommand>("validate")
-        .WithDescription("Validate a raw JWT using --key or TOK_JWT_SIGNING_KEY, prompting if missing.")
+        .WithDescription("Validate a raw JWT using --key, prompting securely if missing.")
         .WithExample(new[] { "validate", "<jwt>", "--key", "<key>" });
 
     config.AddBranch("completion", completion =>
@@ -75,4 +75,37 @@ if (args.Length == 0)
     return await app.RunAsync(["--help"]);
 }
 
-return await app.RunAsync(args);
+return await app.RunAsync(NormalizeOptionValueArgs(args));
+
+static string[] NormalizeOptionValueArgs(string[] rawArgs)
+{
+    if (rawArgs.Length == 0)
+    {
+        return rawArgs;
+    }
+
+    var normalized = new List<string>(rawArgs.Length);
+
+    for (var i = 0; i < rawArgs.Length; i++)
+    {
+        var current = rawArgs[i];
+        if (RequiresAttachedValue(current) && i + 1 < rawArgs.Length)
+        {
+            normalized.Add($"{current}={rawArgs[i + 1]}");
+            i++;
+            continue;
+        }
+
+        normalized.Add(current);
+    }
+
+    return normalized.ToArray();
+}
+
+static bool RequiresAttachedValue(string arg)
+{
+    return string.Equals(arg, "--key", StringComparison.Ordinal) ||
+           string.Equals(arg, "-k", StringComparison.Ordinal) ||
+           string.Equals(arg, "--fp", StringComparison.Ordinal) ||
+           string.Equals(arg, "--fingerprint", StringComparison.Ordinal);
+}

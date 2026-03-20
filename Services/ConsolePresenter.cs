@@ -11,47 +11,20 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
 {
     public void WriteClearText(string clearText)
     {
-        Console.WriteLine();
-        WriteSection("Clear Text");
-        Console.WriteLine(clearText);
+        AnsiConsole.Write(new Rule("[cyan]Payload Decrypt[/]").LeftJustified());
+        AnsiConsole.Write(CreateTextPanel(FormatTextForDisplay(clearText), "Clear Text"));
     }
 
     public void WriteCookieInspection(CookieDebugResult result)
     {
-        Console.WriteLine();
-        WriteSection("Decrypted JWT");
-        Console.WriteLine(result.DecryptedJwt);
+        var rawJwt = BuildRawJwtInspectionResult(result.DecryptedJwt, result.Report);
 
-        Console.WriteLine();
-        WriteSection("JWT Payload");
-        foreach (var line in result.Report.PayloadLines)
-        {
-            Console.WriteLine(line);
-        }
-
-        Console.WriteLine();
-        WriteSection("iat (Readable)");
-        Console.WriteLine(result.Report.IssuedAtReadable);
-
-        Console.WriteLine();
-        WriteSection("nbf (Readable)");
-        Console.WriteLine(result.Report.NotBeforeReadable);
-
-        Console.WriteLine();
-        WriteSection("exp (Readable)");
-        Console.WriteLine(result.Report.ExpiresReadable);
-
-        Console.WriteLine();
-        WriteSection("Token Lifetime");
-        Console.WriteLine(result.Report.TokenLifetime);
-
-        Console.WriteLine();
-        WriteSection("Remaining Time Until Expiration");
-        Console.WriteLine(result.Report.RemainingTimeUntilExpiration);
-
-        Console.WriteLine();
-        WriteSection("Is Expired");
-        Console.WriteLine(result.Report.IsExpired ? "Yes" : "No");
+        AnsiConsole.Write(new Rule("[cyan]Cookie JWT[/]").LeftJustified());
+        AnsiConsole.Write(CreateRawJwtPanel(rawJwt.Jwt, "Decrypted JWT"));
+        AnsiConsole.Write(CreateCookieContextGrid(result));
+        AnsiConsole.Write(CreateJwtStatusGrid(rawJwt.Report));
+        AnsiConsole.Write(CreateClaimsTable(rawJwt.Claims));
+        AnsiConsole.Write(CreateJsonGrid(rawJwt.HeaderJson, rawJwt.PayloadJson, "Header JSON", "Payload JSON"));
     }
 
     public void WriteHarInspection(HarDebugResult result)
@@ -128,6 +101,7 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
     {
         AnsiConsole.Write(new Rule("[cyan]JWT Validate[/]").LeftJustified());
         AnsiConsole.Write(CreateRawJwtPanel(result.Jwt, "JWT"));
+        AnsiConsole.Write(CreateValidationSummaryPanel(result));
 
         var statusTable = new Table().Border(TableBorder.Rounded).Expand();
         statusTable.AddColumn("[cyan]Check[/]");
@@ -259,9 +233,104 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
         return jsonGrid;
     }
 
+    private static Grid CreateCookieContextGrid(CookieDebugResult result)
+    {
+        var grid = new Grid();
+        grid.AddColumn();
+        grid.AddColumn();
+        grid.AddRow(
+            new Panel(new Markup($"[bold]Environment[/]\n{EscapeMarkup(result.Environment.ToString())}")).Border(BoxBorder.Rounded),
+            new Panel(new Markup($"[bold]Fingerprint[/]\n{EscapeMarkup(result.Fingerprint)}")).Border(BoxBorder.Rounded));
+        return grid;
+    }
+
+    private static Panel CreateTextPanel(string text, string header)
+    {
+        return new Panel(new Text(text))
+            .Header(header)
+            .Border(BoxBorder.Rounded)
+            .Expand();
+    }
+
+    private static Panel CreateValidationSummaryPanel(JwtValidationResult result)
+    {
+        var statusMarkup = result.SignatureValid && result.IsLifetimeCurrentlyValid
+            ? "[green]"
+            : result.SignatureValid
+                ? "[yellow]"
+                : "[red]";
+
+        var body = new Markup($"{statusMarkup}[bold]{EscapeMarkup(result.OverallStatus)}[/][/]");
+        return new Panel(body)
+            .Header("Overall Result")
+            .Border(BoxBorder.Rounded)
+            .Expand();
+    }
+
     private static string EscapeMarkup(string value)
     {
         return Markup.Escape(value ?? string.Empty);
+    }
+
+    private static string FormatTextForDisplay(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        if (!LooksLikeJson(trimmed))
+        {
+            return trimmed;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(trimmed);
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+            {
+                Indented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            }))
+            {
+                document.RootElement.WriteTo(writer);
+            }
+
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+        catch (JsonException)
+        {
+            return trimmed;
+        }
+    }
+
+    private static bool LooksLikeJson(string value)
+    {
+        return (value.StartsWith("{", StringComparison.Ordinal) && value.EndsWith("}", StringComparison.Ordinal)) ||
+               (value.StartsWith("[", StringComparison.Ordinal) && value.EndsWith("]", StringComparison.Ordinal));
+    }
+
+    private static RawJwtInspectionResult BuildRawJwtInspectionResult(string jwt, JwtInspectionResult report)
+    {
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
+        var claims = token.Claims
+            .GroupBy(claim => claim.Type, StringComparer.Ordinal)
+            .Select(group => new KeyValuePair<string, string>(
+                group.Key,
+                string.Join(" | ", group.Select(claim => claim.Value))))
+            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new RawJwtInspectionResult
+        {
+            Jwt = jwt,
+            HeaderJson = SerializeJsonObject(token.Header),
+            PayloadJson = SerializeJsonObject(token.Payload),
+            Claims = claims,
+            Report = report
+        };
     }
 
     private void WriteJsonComparisonSections(string cookieJwt, string authJwt, Func<string, string> authValueTransformer)

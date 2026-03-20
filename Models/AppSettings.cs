@@ -3,8 +3,6 @@ namespace CookieDebugger.Models;
 public sealed class AppSettings
 {
     public PassPhrases PassPhrases { get; set; } = new();
-
-    public FingerprintDecryption FingerprintDecryption { get; set; } = new();
 }
 
 public sealed class PassPhrases
@@ -14,13 +12,6 @@ public sealed class PassPhrases
     public string Stage { get; set; } = string.Empty;
 
     public string Production { get; set; } = string.Empty;
-}
-
-public sealed class FingerprintDecryption
-{
-    public string Key { get; set; } = string.Empty;
-
-    public string IV { get; set; } = string.Empty;
 }
 
 public enum AppEnvironment

@@ -51,11 +51,7 @@ public sealed class DebuggerService(
         }
 
         var harExtraction = harFileParser.Extract(normalizedPath);
-        var encryptionKey = secretResolver.ResolveEncryptionKey();
-        var fingerprint = fingerprintDecryptor.Decrypt(
-            harExtraction.EncryptedFingerprint,
-            encryptionKey,
-            encryptionKey);
+        var fingerprint = DecryptWithEncryptionKeyRetry(harExtraction.EncryptedFingerprint);
 
         return new HarDebugResult
         {
@@ -73,10 +69,11 @@ public sealed class DebuggerService(
             throw new ArgumentException("A JWT string is required.");
         }
 
+        var normalizedJwt = NormalizeJwtInput(jwt);
         JwtSecurityToken token;
         try
         {
-            token = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
+            token = new JwtSecurityTokenHandler().ReadJwtToken(normalizedJwt);
         }
         catch (Exception ex)
         {
@@ -93,11 +90,11 @@ public sealed class DebuggerService(
 
         return new RawJwtInspectionResult
         {
-            Jwt = jwt,
+            Jwt = normalizedJwt,
             HeaderJson = SerializeJsonObject(token.Header),
             PayloadJson = SerializeJsonObject(token.Payload),
             Claims = claims,
-            Report = jwtInspector.Inspect(jwt)
+            Report = jwtInspector.Inspect(normalizedJwt)
         };
     }
 
@@ -108,7 +105,7 @@ public sealed class DebuggerService(
             throw new ArgumentException("A value is required.");
         }
 
-        var trimmed = input.Trim();
+        var trimmed = NormalizeJwtInput(input);
         var segmentCount = trimmed.Split('.', StringSplitOptions.RemoveEmptyEntries).Length;
         var canRead = new JwtSecurityTokenHandler().CanReadToken(trimmed);
 
@@ -123,6 +120,16 @@ public sealed class DebuggerService(
         };
     }
 
+    public bool LooksLikeEncryptedPayload(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return false;
+        }
+
+        return cookieParser.LooksLikeEncryptedPayload(input);
+    }
+
     public JwtValidationResult ValidateRawJwt(string jwt, string key)
     {
         if (string.IsNullOrWhiteSpace(jwt))
@@ -135,7 +142,7 @@ public sealed class DebuggerService(
             throw new ArgumentException("A signing key is required.");
         }
 
-        var trimmed = jwt.Trim();
+        var trimmed = NormalizeJwtInput(jwt);
         var readability = CanReadJwt(trimmed);
         if (!readability.CanRead)
         {
@@ -151,6 +158,7 @@ public sealed class DebuggerService(
                 IssuedAtReadable = "N/A",
                 NotBeforeReadable = "N/A",
                 ExpiresReadable = "N/A",
+                OverallStatus = "Unreadable JWT",
                 Messages = new[]
                 {
                     "The token could not be parsed as a JWT."
@@ -225,6 +233,15 @@ public sealed class DebuggerService(
         }
 
         var isLifetimeCurrentlyValid = signatureValid && (!hasExpiration || !isExpired) && !isNotYetValid;
+        var overallStatus = !signatureValid
+            ? "Invalid Signature"
+            : isExpired
+                ? "Signature Valid, Token Expired"
+                : isNotYetValid
+                    ? "Signature Valid, Token Not Yet Valid"
+                    : isLifetimeCurrentlyValid
+                        ? "Signature and Lifetime Valid"
+                        : "Signature Valid, Lifetime Check Failed";
 
         return new JwtValidationResult
         {
@@ -238,6 +255,7 @@ public sealed class DebuggerService(
             IssuedAtReadable = report.IssuedAtReadable,
             NotBeforeReadable = report.NotBeforeReadable,
             ExpiresReadable = report.ExpiresReadable,
+            OverallStatus = overallStatus,
             Messages = messages
         };
     }
@@ -249,11 +267,7 @@ public sealed class DebuggerService(
             throw new ArgumentException("Encrypted payload is required.");
         }
 
-        var encryptionKey = secretResolver.ResolveEncryptionKey();
-        return fingerprintDecryptor.Decrypt(
-            encryptedText,
-            encryptionKey,
-            encryptionKey);
+        return DecryptWithEncryptionKeyRetry(encryptedText);
     }
 
     public string TryDecryptClaimValue(string rawValue)
@@ -263,7 +277,11 @@ public sealed class DebuggerService(
             return rawValue;
         }
 
-        var encryptionKey = secretResolver.ResolveEncryptionKey();
+        var encryptionKey = secretResolver.GetCachedOrEnvironmentEncryptionKey();
+        if (string.IsNullOrWhiteSpace(encryptionKey))
+        {
+            return rawValue;
+        }
 
         try
         {
@@ -283,6 +301,27 @@ public sealed class DebuggerService(
         catch (ArgumentException)
         {
             return rawValue;
+        }
+    }
+
+    private string DecryptWithEncryptionKeyRetry(string encryptedText)
+    {
+        var encryptionKey = secretResolver.ResolveEncryptionKey();
+
+        try
+        {
+            return fingerprintDecryptor.Decrypt(
+                encryptedText,
+                encryptionKey,
+                encryptionKey);
+        }
+        catch (CryptographicException)
+        {
+            var promptedKey = secretResolver.ResolveEncryptionKey(forcePrompt: true);
+            return fingerprintDecryptor.Decrypt(
+                encryptedText,
+                promptedKey,
+                promptedKey);
         }
     }
 
@@ -316,6 +355,22 @@ public sealed class DebuggerService(
         }
 
         return value.Trim().Trim('"');
+    }
+
+    public static string NormalizeJwtInput(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        var value = input.Trim();
+        if (value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value["Bearer ".Length..].Trim();
+        }
+
+        return value;
     }
 
     private static string SerializeJsonObject(IEnumerable<KeyValuePair<string, object>> values)

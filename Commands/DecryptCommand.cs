@@ -10,18 +10,21 @@ public sealed class DecryptCommand : Command<DecryptSettings>
 {
     private readonly DebuggerService _debuggerService;
     private readonly ConsolePresenter _consolePresenter;
+    private readonly SecretResolver _secretResolver;
 
-    public DecryptCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter)
+    public DecryptCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
         _debuggerService = debuggerService;
         _consolePresenter = consolePresenter;
+        _secretResolver = secretResolver;
     }
 
     public override int Execute(CommandContext context, DecryptSettings settings)
     {
         try
         {
-            var result = _debuggerService.InspectCookie(settings.Cookie, settings.Fingerprint, settings.Environment);
+            var fingerprint = _secretResolver.ResolveCookieFingerprint(settings.Fingerprint);
+            var result = InspectCookieWithRetry(settings.Cookie, fingerprint, settings.Environment);
             _consolePresenter.WriteCookieInspection(result);
             return 0;
         }
@@ -31,6 +34,19 @@ public sealed class DecryptCommand : Command<DecryptSettings>
                 ? $"Unable to decrypt the value. {ex.Message}"
                 : ex.Message);
             return -1;
+        }
+    }
+
+    private CookieDebugResult InspectCookieWithRetry(string cookie, string fingerprint, AppEnvironment environment)
+    {
+        try
+        {
+            return _debuggerService.InspectCookie(cookie, fingerprint, environment);
+        }
+        catch (CryptographicException)
+        {
+            var promptedFingerprint = _secretResolver.ResolveCookieFingerprint(forcePrompt: true);
+            return _debuggerService.InspectCookie(cookie, promptedFingerprint, environment);
         }
     }
 }
@@ -51,11 +67,6 @@ public sealed class DecryptSettings : CommandSettings
         if (string.IsNullOrWhiteSpace(Cookie))
         {
             return ValidationResult.Error("An encrypted cookie string is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(Fingerprint))
-        {
-            return ValidationResult.Error("A fingerprint is required. Use --fp.");
         }
 
         return ValidationResult.Success();
