@@ -29,34 +29,17 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
 
     public void WriteHarInspection(HarDebugResult result)
     {
-        Console.WriteLine();
-        WriteSection("Cookie Extraction");
-        Console.WriteLine($"Encrypted ClientID: {result.EncryptedFingerprint}");
-        Console.WriteLine($"Fingerprint: {result.CookieDebug.Fingerprint}");
-        Console.WriteLine("Encrypted cookie string extracted from encinfo.");
+        AnsiConsole.Write(new Rule("[cyan]HAR Inspect[/]").LeftJustified());
+        AnsiConsole.Write(CreateHarSummaryGrid(result));
+        AnsiConsole.Write(CreateRawJwtPanel(result.CookieDebug.DecryptedJwt, "Cookie JWT"));
 
-        Console.WriteLine();
-        WriteSection("Cookie JWT");
-        Console.WriteLine(result.CookieDebug.DecryptedJwt);
-
-        Console.WriteLine();
-        WriteSection("Auth JWT");
         if (string.IsNullOrWhiteSpace(result.AuthorizationJwt))
         {
-            Console.WriteLine("No JWT was found in the Authorization header of the request.");
-        }
-        else
-        {
-            Console.WriteLine(result.AuthorizationJwt);
-        }
-
-        Console.WriteLine();
-        WriteSection("JWT Comparison");
-        if (string.IsNullOrWhiteSpace(result.AuthorizationJwt))
-        {
-            Console.WriteLine("No JWT was found in the Authorization header of the request.");
+            AnsiConsole.Write(CreateTextPanel("No JWT was found in the Authorization header of the request.", "Auth JWT"));
             return;
         }
+
+        AnsiConsole.Write(CreateRawJwtPanel(result.AuthorizationJwt, "Auth JWT"));
 
         var authReport = new JwtInspector().Inspect(result.AuthorizationJwt);
 
@@ -65,7 +48,6 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
             result.AuthorizationJwt,
             debuggerService.TryDecryptClaimValue);
 
-        Console.WriteLine();
         WriteTokenStatusComparisonTable(result.CookieDebug.Report, authReport);
     }
 
@@ -99,6 +81,7 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
 
     public void WriteJwtValidation(JwtValidationResult result)
     {
+        var rawJwt = BuildRawJwtInspectionResult(result.Jwt, new JwtInspector().Inspect(result.Jwt));
         AnsiConsole.Write(new Rule("[cyan]JWT Validate[/]").LeftJustified());
         AnsiConsole.Write(CreateRawJwtPanel(result.Jwt, "JWT"));
         AnsiConsole.Write(CreateValidationSummaryPanel(result));
@@ -124,12 +107,28 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
             new Panel(new Markup($"[bold]exp[/]\n{EscapeMarkup(result.ExpiresReadable)}")).Border(BoxBorder.Rounded),
             new Panel(new Markup($"[bold]Signature[/]\n{(result.SignatureValid ? "[green]Verified[/]" : "[red]Invalid[/]")}")).Border(BoxBorder.Rounded));
         AnsiConsole.Write(timing);
+        AnsiConsole.Write(CreateClaimsTable(rawJwt.Claims));
 
         var messages = new Rows(result.Messages.Select(message => new Markup($"[grey]-[/] {EscapeMarkup(message)}")));
         AnsiConsole.Write(new Panel(messages)
             .Header("Validation Notes")
             .Border(BoxBorder.Rounded)
             .Expand());
+    }
+
+    public void WriteDecryptedPayloadValues(string jwt, Func<string, string> valueTransformer)
+    {
+        var decryptedPayloadJson = BuildDecryptedPayloadJson(jwt, valueTransformer);
+        AnsiConsole.Write(new Rule("[cyan]Decrypted Payload Values[/]").LeftJustified());
+        AnsiConsole.Write(CreateTextPanel(decryptedPayloadJson, "JWT"));
+    }
+
+    public void WriteEnvKeyNotice(string envVarName)
+    {
+        var body = new Markup($"[bold]Encryption key source[/]\nRead from env variable [cyan]{EscapeMarkup(envVarName)}[/]\nKey: XXXXXXX");
+        AnsiConsole.Write(new Panel(body)
+            .Header("Encryption Key")
+            .Border(BoxBorder.Rounded));
     }
 
     public void WriteHeader()
@@ -244,6 +243,20 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
         return grid;
     }
 
+    private static Grid CreateHarSummaryGrid(HarDebugResult result)
+    {
+        var grid = new Grid();
+        grid.AddColumn();
+        grid.AddColumn();
+        grid.AddRow(
+            new Panel(new Markup($"[bold]HAR File[/]\n{EscapeMarkup(result.HarFilePath)}")).Border(BoxBorder.Rounded),
+            new Panel(new Markup($"[bold]Encrypted ClientID[/]\n{EscapeMarkup(result.EncryptedFingerprint)}")).Border(BoxBorder.Rounded));
+        grid.AddRow(
+            new Panel(new Markup($"[bold]Fingerprint[/]\n{EscapeMarkup(result.CookieDebug.Fingerprint)}")).Border(BoxBorder.Rounded),
+            new Panel(new Markup("[bold]Cookie Source[/]\nEncrypted cookie string extracted from encinfo.")).Border(BoxBorder.Rounded));
+        return grid;
+    }
+
     private static Panel CreateTextPanel(string text, string header)
     {
         return new Panel(new Text(text))
@@ -342,18 +355,20 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
         var cookieDecryptedPayloadJson = BuildDecryptedPayloadJson(cookieJwt, null);
         var authDecryptedPayloadJson = BuildDecryptedPayloadJson(authJwt, authValueTransformer);
 
-        WriteTwoColumnTextTable("Header JSON", "Cookie JWT", cookieHeaderJson, "Auth JWT", authHeaderJson);
-        Console.WriteLine();
-        WriteTwoColumnTextTable("Raw Payload JSON", "Cookie JWT", cookieRawPayloadJson, "Auth JWT", authRawPayloadJson);
-        Console.WriteLine();
-        WriteTwoColumnTextTable("Decrypted Payload Values", "Cookie JWT", cookieDecryptedPayloadJson, "Auth JWT", authDecryptedPayloadJson);
+        AnsiConsole.Write(new Rule("[cyan]Header JSON[/]").LeftJustified());
+        AnsiConsole.Write(CreateJsonGrid(cookieHeaderJson, authHeaderJson, "Cookie JWT", "Auth JWT"));
+        AnsiConsole.Write(new Rule("[cyan]Raw Payload JSON[/]").LeftJustified());
+        AnsiConsole.Write(CreateJsonGrid(cookieRawPayloadJson, authRawPayloadJson, "Cookie JWT", "Auth JWT"));
+        AnsiConsole.Write(new Rule("[cyan]Decrypted Payload Values[/]").LeftJustified());
+        AnsiConsole.Write(CreateJsonGrid(cookieDecryptedPayloadJson, authDecryptedPayloadJson, "Cookie JWT", "Auth JWT"));
     }
 
     private void WriteTokenStatusComparisonTable(JwtInspectionResult cookieReport, JwtInspectionResult authReport)
     {
         var cookieJson = BuildTokenStatusJson(cookieReport);
         var authJson = BuildTokenStatusJson(authReport);
-        WriteTwoColumnTextTable("Token Status", "Cookie JWT", cookieJson, "Auth JWT", authJson);
+        AnsiConsole.Write(new Rule("[cyan]Token Status[/]").LeftJustified());
+        AnsiConsole.Write(CreateJsonGrid(cookieJson, authJson, "Cookie JWT", "Auth JWT"));
     }
 
     private static string GetJwtHeaderJson(string jwt)
@@ -462,88 +477,6 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
             JsonValueKind.Null => null,
             _ => element.ToString()
         };
-    }
-
-    private static int GetTableWidth()
-    {
-        try
-        {
-            return Math.Clamp(Console.WindowWidth > 0 ? Console.WindowWidth - 1 : 140, 100, 180);
-        }
-        catch
-        {
-            return 140;
-        }
-    }
-
-    private static List<string> WrapText(string value, int width)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return new List<string> { string.Empty };
-        }
-
-        var normalized = value.Replace("\r", string.Empty);
-        var lines = new List<string>();
-
-        foreach (var paragraph in normalized.Split('\n'))
-        {
-            if (string.IsNullOrEmpty(paragraph))
-            {
-                lines.Add(string.Empty);
-                continue;
-            }
-
-            var remaining = paragraph;
-            while (remaining.Length > width)
-            {
-                lines.Add(remaining[..width]);
-                remaining = remaining[width..];
-            }
-
-            lines.Add(remaining);
-        }
-
-        return lines;
-    }
-
-    private static string BuildSeparator(params int[] widths)
-    {
-        return "+" + string.Join("+", widths.Select(width => new string('-', width + 2))) + "+";
-    }
-
-    private static void WriteTwoColumnTextTable(string title, string leftHeader, string leftValue, string rightHeader, string rightValue)
-    {
-        var totalWidth = GetTableWidth();
-        var innerWidth = totalWidth - 3;
-        var columnWidth = (innerWidth - 3) / 2;
-        var leftLines = WrapText(leftValue, columnWidth);
-        var rightLines = WrapText(rightValue, columnWidth);
-        var rowCount = Math.Max(leftLines.Count, rightLines.Count);
-
-        Console.WriteLine(title);
-        Console.WriteLine(BuildSeparator(columnWidth, columnWidth));
-        Console.WriteLine(BuildTwoColumnRow(leftHeader, columnWidth, rightHeader, columnWidth));
-        Console.WriteLine(BuildSeparator(columnWidth, columnWidth));
-
-        for (var i = 0; i < rowCount; i++)
-        {
-            var left = i < leftLines.Count ? leftLines[i] : string.Empty;
-            var right = i < rightLines.Count ? rightLines[i] : string.Empty;
-            Console.WriteLine(BuildTwoColumnRow(left, columnWidth, right, columnWidth));
-        }
-
-        Console.WriteLine(BuildSeparator(columnWidth, columnWidth));
-    }
-
-    private static string BuildTwoColumnRow(string first, int firstWidth, string second, int secondWidth)
-    {
-        return $"| {Pad(first, firstWidth)} | {Pad(second, secondWidth)} |";
-    }
-
-    private static string Pad(string value, int width)
-    {
-        return value.Length >= width ? value[..width] : value.PadRight(width);
     }
 
     private static string SerializeIndentedJson(IReadOnlyDictionary<string, object?> values)

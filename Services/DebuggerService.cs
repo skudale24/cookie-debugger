@@ -130,6 +130,48 @@ public sealed class DebuggerService(
         return cookieParser.LooksLikeEncryptedPayload(input);
     }
 
+    public bool HasEncryptedJwtClaims(string jwt)
+    {
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            return false;
+        }
+
+        var normalizedJwt = NormalizeJwtInput(jwt);
+        JwtSecurityToken token;
+        try
+        {
+            token = new JwtSecurityTokenHandler().ReadJwtToken(normalizedJwt);
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException($"Value is not a valid JWT. {ex.Message}", ex);
+        }
+
+        return token.Payload.Values.Any(ContainsEncryptedPayloadCandidate);
+    }
+
+    public bool CanDecryptJwtClaims(string jwt, string encryptionKey)
+    {
+        if (string.IsNullOrWhiteSpace(jwt) || string.IsNullOrWhiteSpace(encryptionKey))
+        {
+            return false;
+        }
+
+        var normalizedJwt = NormalizeJwtInput(jwt);
+        JwtSecurityToken token;
+        try
+        {
+            token = new JwtSecurityTokenHandler().ReadJwtToken(normalizedJwt);
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException($"Value is not a valid JWT. {ex.Message}", ex);
+        }
+
+        return token.Payload.Values.Any(value => ContainsSuccessfullyDecryptedPayloadCandidate(value, encryptionKey));
+    }
+
     public JwtValidationResult ValidateRawJwt(string jwt, string key)
     {
         if (string.IsNullOrWhiteSpace(jwt))
@@ -304,6 +346,34 @@ public sealed class DebuggerService(
         }
     }
 
+    public string TryDecryptClaimValue(string rawValue, string encryptionKey)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue) || string.IsNullOrWhiteSpace(encryptionKey))
+        {
+            return rawValue;
+        }
+
+        try
+        {
+            return fingerprintDecryptor.Decrypt(
+                rawValue,
+                encryptionKey,
+                encryptionKey);
+        }
+        catch (FormatException)
+        {
+            return rawValue;
+        }
+        catch (CryptographicException)
+        {
+            return rawValue;
+        }
+        catch (ArgumentException)
+        {
+            return rawValue;
+        }
+    }
+
     private string DecryptWithEncryptionKeyRetry(string encryptedText)
     {
         var encryptionKey = secretResolver.ResolveEncryptionKey();
@@ -420,6 +490,87 @@ public sealed class DebuggerService(
             JsonValueKind.Null => null,
             _ => element.ToString()
         };
+    }
+
+    private bool ContainsEncryptedPayloadCandidate(object? value)
+    {
+        return value switch
+        {
+            null => false,
+            string stringValue => IsPotentialEncryptedClaimString(stringValue),
+            JsonElement jsonElement => ContainsEncryptedPayloadCandidate(jsonElement),
+            IEnumerable<object?> enumerable => enumerable.Any(ContainsEncryptedPayloadCandidate),
+            _ => false
+        };
+    }
+
+    private bool ContainsEncryptedPayloadCandidate(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => IsPotentialEncryptedClaimString(element.GetString() ?? string.Empty),
+            JsonValueKind.Array => element.EnumerateArray().Any(ContainsEncryptedPayloadCandidate),
+            JsonValueKind.Object => element.EnumerateObject().Any(property => ContainsEncryptedPayloadCandidate(property.Value)),
+            _ => false
+        };
+    }
+
+    private bool ContainsSuccessfullyDecryptedPayloadCandidate(object? value, string encryptionKey)
+    {
+        return value switch
+        {
+            null => false,
+            string stringValue => IsSuccessfullyDecryptedPayloadCandidate(stringValue, encryptionKey),
+            JsonElement jsonElement => ContainsSuccessfullyDecryptedPayloadCandidate(jsonElement, encryptionKey),
+            IEnumerable<object?> enumerable => enumerable.Any(item => ContainsSuccessfullyDecryptedPayloadCandidate(item, encryptionKey)),
+            _ => false
+        };
+    }
+
+    private bool ContainsSuccessfullyDecryptedPayloadCandidate(JsonElement element, string encryptionKey)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => IsSuccessfullyDecryptedPayloadCandidate(element.GetString() ?? string.Empty, encryptionKey),
+            JsonValueKind.Array => element.EnumerateArray().Any(item => ContainsSuccessfullyDecryptedPayloadCandidate(item, encryptionKey)),
+            JsonValueKind.Object => element.EnumerateObject().Any(property => ContainsSuccessfullyDecryptedPayloadCandidate(property.Value, encryptionKey)),
+            _ => false
+        };
+    }
+
+    private bool IsSuccessfullyDecryptedPayloadCandidate(string value, string encryptionKey)
+    {
+        if (!IsPotentialEncryptedClaimString(value))
+        {
+            return false;
+        }
+
+        var decrypted = TryDecryptClaimValue(value, encryptionKey);
+        return !string.Equals(decrypted, value, StringComparison.Ordinal);
+    }
+
+    private static bool IsPotentialEncryptedClaimString(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalized = value.Trim().Replace(" ", "+", StringComparison.Ordinal);
+        if (normalized.Length < 16)
+        {
+            return false;
+        }
+
+        try
+        {
+            var bytes = Convert.FromBase64String(normalized);
+            return bytes.Length >= 16;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static void WriteJsonObject(Utf8JsonWriter writer, IReadOnlyDictionary<string, object?> values)

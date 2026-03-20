@@ -12,11 +12,11 @@ public sealed class SecretResolver
     {
         if (forcePrompt)
         {
-            _cachedEncryptionKey = PromptHidden("Encryption Key");
+            _cachedEncryptionKey = PromptVisible("Encryption Key");
             return _cachedEncryptionKey;
         }
 
-        _cachedEncryptionKey ??= ResolveSecret(EncryptionKeyEnvVar, "Encryption Key");
+        _cachedEncryptionKey ??= ResolveEncryptionSecret();
         return _cachedEncryptionKey;
     }
 
@@ -43,11 +43,11 @@ public sealed class SecretResolver
 
         if (forcePrompt)
         {
-            _cachedCookieFingerprint = PromptHidden("Fingerprint");
+            _cachedCookieFingerprint = PromptVisible("Fingerprint");
             return _cachedCookieFingerprint;
         }
 
-        _cachedCookieFingerprint ??= ResolveSecret(CookieFingerprintEnvVar, "Fingerprint");
+        _cachedCookieFingerprint ??= ResolveVisibleSecret(CookieFingerprintEnvVar, "Fingerprint");
         return _cachedCookieFingerprint;
     }
 
@@ -59,8 +59,30 @@ public sealed class SecretResolver
             return _cachedJwtSigningKey;
         }
 
-        _cachedJwtSigningKey ??= NormalizeJwtSigningKey(PromptHidden("JWT Signing Key"));
+        _cachedJwtSigningKey ??= NormalizeJwtSigningKey(PromptVisible("JWT Signing Key"));
         return _cachedJwtSigningKey;
+    }
+
+    private static string ResolveEncryptionSecret()
+    {
+        var environmentValue = Environment.GetEnvironmentVariable(EncryptionKeyEnvVar);
+        if (!string.IsNullOrWhiteSpace(environmentValue))
+        {
+            return environmentValue.Trim();
+        }
+
+        return PromptVisible("Encryption Key");
+    }
+
+    private static string ResolveVisibleSecret(string envVarName, string promptLabel)
+    {
+        var environmentValue = Environment.GetEnvironmentVariable(envVarName);
+        if (!string.IsNullOrWhiteSpace(environmentValue))
+        {
+            return environmentValue.Trim();
+        }
+
+        return PromptVisible(promptLabel);
     }
 
     private static string ResolveSecret(string envVarName, string promptLabel)
@@ -123,6 +145,18 @@ public sealed class SecretResolver
         }
 
         return secret;
+    }
+
+    private static string PromptVisible(string label)
+    {
+        Console.Write($"{label}: ");
+        var input = Console.ReadLine()?.Trim();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            throw new ArgumentException($"{label} is required.");
+        }
+
+        return input;
     }
 
     private static string NormalizeJwtSigningKey(string value)

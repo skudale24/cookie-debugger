@@ -4,6 +4,14 @@ Console utility for decrypting and inspecting cookies/JWTs, comparing cookie and
 
 ## Local Setup
 
+Set the encryption key before using payload or HAR decryption:
+
+```powershell
+setx TOK_ENCRYPTION_KEY ********
+```
+
+Open a new terminal after running `setx`.
+
 Create a local config file from the template:
 
 ```bash
@@ -56,10 +64,11 @@ How `tok <input>` auto-detects:
 Notes:
 
 - For encrypted cookie auto-detection, pass `--fp` and optionally `--env` alongside the input.
-- Encrypted cookie decryption resolves the fingerprint in this order: `--fp`, then `TOK_COOKIE_FINGERPRINT`, then a hidden prompt. If the first fingerprint cannot decrypt the cookie, `tok` prompts again.
-- Raw encrypted payload auto-detection resolves the encryption key in this order: `TOK_ENCRYPTION_KEY`, then a hidden prompt. If the first key cannot decrypt the payload, `tok` prompts again.
-- `validate` resolves the JWT signing key in this order: `--key`, then a hidden prompt. You can pass `--key <value>` directly on the command line, including PEM-like values that start with hyphens.
+- Encrypted cookie decryption resolves the fingerprint in this order: `--fp`, then `TOK_COOKIE_FINGERPRINT`, then a visible prompt. If the first fingerprint cannot decrypt the cookie, `tok` prompts again.
+- Raw encrypted payload auto-detection resolves the encryption key in this order: `TOK_ENCRYPTION_KEY`, then a visible prompt. If the first key cannot decrypt the payload, `tok` prompts again.
+- `validate` resolves the JWT signing key in this order: `--key`, then a visible prompt. You can pass `--key <value>` directly on the command line, including PEM-like values that start with hyphens.
 - JWT-oriented commands such as `inspect`, `decode`, `validate`, and `can-read` accept either a raw JWT or an `Authorization`-style value like `Bearer <token>`.
+- `inspect` and `validate` render their normal JWT output first. If payload claims look encrypted, `tok` checks `TOK_ENCRYPTION_KEY` first, prompts only if needed, and then appends a `Decrypted Payload Values` section.
 - Secrets are never written back to environment variables automatically.
 - `har` defaults to `Dev` unless you pass `--env`.
 

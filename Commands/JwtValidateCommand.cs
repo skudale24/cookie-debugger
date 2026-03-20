@@ -25,6 +25,26 @@ public sealed class JwtValidateCommand : Command<JwtValidateSettings>
             var signingKey = _secretResolver.ResolveJwtSigningKey(settings.Key);
             var result = _debuggerService.ValidateRawJwt(settings.Jwt, signingKey);
             _consolePresenter.WriteJwtValidation(result);
+            if (_debuggerService.HasEncryptedJwtClaims(result.Jwt))
+            {
+                var encryptionKey = _secretResolver.GetCachedOrEnvironmentEncryptionKey();
+                var usedEnvKey = !string.IsNullOrWhiteSpace(encryptionKey) && _debuggerService.CanDecryptJwtClaims(result.Jwt, encryptionKey);
+                if (!usedEnvKey)
+                {
+                    encryptionKey = _secretResolver.ResolveEncryptionKey(forcePrompt: true);
+                }
+
+                if (usedEnvKey)
+                {
+                    _consolePresenter.WriteEnvKeyNotice(SecretResolver.EncryptionKeyEnvVar);
+                }
+
+                var resolvedEncryptionKey = encryptionKey!;
+                _consolePresenter.WriteDecryptedPayloadValues(
+                    result.Jwt,
+                    value => _debuggerService.TryDecryptClaimValue(value, resolvedEncryptionKey));
+            }
+
             return result.CanRead && result.SignatureValid && result.IsLifetimeCurrentlyValid ? 0 : -1;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or CryptographicException)
