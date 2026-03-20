@@ -24,6 +24,7 @@
                      HorizontalScrollBarVisibility="{Binding HorizontalScrollBarVisibility, ElementName=Root}"
                      FontFamily="{Binding InputFontFamily, ElementName=Root}"
                      FontSize="{Binding InputFontSize, ElementName=Root}"
+                     VerticalContentAlignment="Center"
                      Padding="0"
                      MinHeight="{Binding MinTextBoxHeight, ElementName=Root}"
                      GotFocus="InputBox_OnGotFocus"

@@ -108,13 +108,9 @@
                             <TextBlock Margin="0,4,0,0"
                                        FontSize="15"
                                        Foreground="#4B5563"
-                                       Text="QA-ready token inspection and troubleshooting" />
+                                       Text="QA-ready token inspection, comparison, and troubleshooting" />
                         </StackPanel>
                     </StackPanel>
-                    <TextBlock Margin="0,8,0,0"
-                               FontSize="15"
-                               Foreground="#6B7280"
-                               Text="Inspect, validate, decrypt, and compare tokens without leaving the desktop app." />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1"
@@ -144,11 +140,8 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Auto-detect input" />
-                    <TextBlock Margin="0,4,0,0"
-                               Style="{StaticResource BodyText}"
-                               Foreground="#5B6D68"
-                               Text="Paste a JWT, cookie, or encrypted payload and the UI will route it to the right tab." />
+                    <TextBlock Style="{StaticResource SectionTitle}"
+                               Text="Auto-detect: paste a JWT, cookie, or encrypted payload." />
                     <controls:FloatingLabelTextBox Height="96"
                                                    Label="Paste or drop a value"
                                                    AcceptsReturn="True"
@@ -200,7 +193,6 @@
                                 <TextBlock Margin="0,14,0,0" Style="{StaticResource FieldLabel}" Text="Environment" />
                                 <ComboBox Margin="0,8,0,0"
                                           Height="40"
-                                          FontSize="15"
                                           ItemsSource="{Binding Environments}"
                                           SelectedItem="{Binding SelectedEnvironment}" />
                                 <Button Margin="0,18,0,0"
@@ -462,7 +454,6 @@
                                 <TextBlock Margin="0,14,0,0" Style="{StaticResource FieldLabel}" Text="Environment" />
                                 <ComboBox Margin="0,8,0,0"
                                           Height="40"
-                                          FontSize="15"
                                           ItemsSource="{Binding Environments}"
                                           SelectedItem="{Binding SelectedEnvironment}" />
                                 <Button Margin="0,18,0,0"

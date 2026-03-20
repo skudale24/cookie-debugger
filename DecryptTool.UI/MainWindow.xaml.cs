@@ -13,15 +13,22 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        App.TryAppendStartupLog("MainWindow: before InitializeComponent");
         InitializeComponent();
+        App.TryAppendStartupLog("MainWindow: after InitializeComponent");
         _viewModel = new MainWindowViewModel(CreateDecryptService(), new UserStateStore());
+        App.TryAppendStartupLog("MainWindow: view model created");
         DataContext = _viewModel;
+        App.TryAppendStartupLog("MainWindow: data context assigned");
         Loaded += OnLoaded;
+        App.TryAppendStartupLog("MainWindow: loaded handler attached");
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        App.TryAppendStartupLog("MainWindow: loaded event fired");
         await _viewModel.InitializeAsync();
+        App.TryAppendStartupLog("MainWindow: InitializeAsync completed");
     }
 
     private async void AutoDetectButton_Click(object sender, RoutedEventArgs e)

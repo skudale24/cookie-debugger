@@ -186,6 +186,7 @@
                 <Setter Property="Padding" Value="10" />
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="Foreground" Value="#111827" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TextBox">
@@ -222,6 +223,7 @@
             <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
                 <Setter Property="SnapsToDevicePixels" Value="True" />
             </Style>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
