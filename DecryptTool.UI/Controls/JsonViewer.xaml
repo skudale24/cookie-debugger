@@ -1,0 +1,19 @@
+<UserControl x:Class="DecryptTool.UI.Controls.JsonViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Border Background="{StaticResource InputBackgroundBrush}"
+            BorderBrush="{StaticResource InputBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="6">
+        <RichTextBox x:Name="Viewer"
+                     IsReadOnly="True"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     FontFamily="Consolas"
+                     FontSize="14"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Disabled" />
+    </Border>
+</UserControl>

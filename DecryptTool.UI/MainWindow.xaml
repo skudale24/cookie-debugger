@@ -1,6 +1,7 @@
 <Window x:Class="DecryptTool.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:DecryptTool.UI.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -12,7 +13,7 @@
         MinHeight="740"
         FontFamily="Segoe UI"
         FontSize="14"
-        Background="#EEE7DA">
+        Background="{StaticResource AppBackgroundBrush}">
     <Window.Resources>
         <Style x:Key="BodyText" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
@@ -28,28 +29,18 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="#22322E" />
         </Style>
-        <Style x:Key="InputBox" TargetType="TextBox">
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="BorderBrush" Value="#CBBEA7" />
-            <Setter Property="Background" Value="#FFFDFC" />
+        <Style x:Key="InputBox" TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Background" Value="#F9FAFB" />
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
         </Style>
         <Style x:Key="CodeBox" TargetType="TextBox" BasedOn="{StaticResource InputBox}">
-            <Setter Property="FontFamily" Value="Cascadia Code" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="12.5" />
             <Setter Property="TextWrapping" Value="NoWrap" />
             <Setter Property="AcceptsReturn" Value="True" />
-        </Style>
-        <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Height" Value="42" />
-            <Setter Property="Padding" Value="18,8" />
-            <Setter Property="Background" Value="#BE5A38" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
         <DataTemplate x:Key="IconButtonContentTemplate">
             <StackPanel Orientation="Horizontal">
@@ -65,16 +56,15 @@
             </StackPanel>
         </DataTemplate>
         <Style x:Key="IconPrimaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="FontSize" Value="15" />
             <Setter Property="ContentTemplate" Value="{StaticResource IconButtonContentTemplate}" />
         </Style>
-        <Style x:Key="IconSecondaryButton" TargetType="Button">
-            <Setter Property="Height" Value="42" />
-            <Setter Property="Padding" Value="18,8" />
-            <Setter Property="Background" Value="#355C54" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderThickness" Value="0" />
+        <Style x:Key="IconSecondaryButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
             <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="ContentTemplate" Value="{StaticResource IconButtonContentTemplate}" />
+        </Style>
+        <Style x:Key="IconSubtleButton" TargetType="Button" BasedOn="{StaticResource SubtleButton}">
+            <Setter Property="FontSize" Value="15" />
             <Setter Property="ContentTemplate" Value="{StaticResource IconButtonContentTemplate}" />
         </Style>
     </Window.Resources>
@@ -89,9 +79,8 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
-                Padding="22"
-                CornerRadius="22"
-                Background="#173B37">
+                Style="{StaticResource CardStyle}"
+                Padding="22">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -104,7 +93,7 @@
                                 Height="54"
                                 Margin="0,0,14,0"
                                 CornerRadius="27"
-                                Background="#F8F2E8">
+                                Background="#DBEAFE">
                             <Image Width="38"
                                    Height="38"
                                    VerticalAlignment="Center"
@@ -114,37 +103,39 @@
                         <StackPanel>
                             <TextBlock FontSize="30"
                                        FontWeight="SemiBold"
-                                       Foreground="#F8F2E8"
+                                       Foreground="#111827"
                                        Text="Tok UI" />
                             <TextBlock Margin="0,4,0,0"
                                        FontSize="15"
-                                       Foreground="#D0E1DB"
+                                       Foreground="#4B5563"
                                        Text="QA-ready token inspection and troubleshooting" />
                         </StackPanel>
                     </StackPanel>
                     <TextBlock Margin="0,8,0,0"
                                FontSize="15"
-                               Foreground="#D0E1DB"
+                               Foreground="#6B7280"
                                Text="Inspect, validate, decrypt, and compare tokens without leaving the desktop app." />
                 </StackPanel>
 
-                <Border Grid.Column="1"
-                        Padding="14,8"
-                        CornerRadius="16"
-                        Background="{Binding StatusBrush}"
-                        VerticalAlignment="Top">
-                    <TextBlock FontWeight="SemiBold"
-                               FontSize="15"
-                               Foreground="{Binding LightTextBrushValue}"
-                               Text="{Binding StatusText}" />
-                </Border>
+                <StackPanel Grid.Column="1"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top">
+                    <Border Padding="14,8"
+                            CornerRadius="16"
+                            Background="{Binding StatusBrush}"
+                            VerticalAlignment="Top">
+                        <TextBlock FontWeight="SemiBold"
+                                   FontSize="15"
+                                   Foreground="{Binding LightTextBrushValue}"
+                                   Text="{Binding StatusText}" />
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
         <Border Grid.Row="2"
-                Padding="18"
-                CornerRadius="20"
-                Background="#FFFDFC">
+                Style="{StaticResource CardStyle}"
+                Padding="18">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -158,12 +149,12 @@
                                Style="{StaticResource BodyText}"
                                Foreground="#5B6D68"
                                Text="Paste a JWT, cookie, or encrypted payload and the UI will route it to the right tab." />
-                    <TextBox Margin="0,12,0,0"
-                             Height="96"
-                             Style="{StaticResource InputBox}"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             Text="{Binding AutoDetectInput, UpdateSourceTrigger=PropertyChanged}" />
+                    <controls:FloatingLabelTextBox Height="96"
+                                                   Label="Paste or drop a value"
+                                                   AcceptsReturn="True"
+                                                   TextWrapping="Wrap"
+                                                   VerticalScrollBarVisibility="Auto"
+                                                   Text="{Binding AutoDetectInput, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
 
                 <Button Grid.Column="2"
@@ -176,9 +167,8 @@
         </Border>
 
         <Border Grid.Row="4"
-                Padding="18"
-                CornerRadius="22"
-                Background="#FFFDFC">
+                Style="{StaticResource CardStyle}"
+                Padding="18">
             <TabControl SelectedIndex="{Binding SelectedTabIndex}">
                 <TabItem Header="🔓 Decode Cookie">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -195,21 +185,18 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Encrypted Cookie" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="140"
-                                         Style="{StaticResource InputBox}"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Text="{Binding CookieInput, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="140"
+                                                               Label="Encrypted Cookie"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               Text="{Binding CookieInput, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Fingerprint" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="40"
-                                         Style="{StaticResource InputBox}"
-                                         Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="56"
+                                                               Label="Fingerprint"
+                                                               Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Margin="0,14,0,0" Style="{StaticResource FieldLabel}" Text="Environment" />
                                 <ComboBox Margin="0,8,0,0"
                                           Height="40"
@@ -233,11 +220,9 @@
 
                             <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Output (JSON)" />
-                                <TextBox Margin="0,10,0,0"
-                                         MinHeight="320"
-                                         Style="{StaticResource CodeBox}"
-                                         IsReadOnly="True"
-                                         Text="{Binding CookieOutput, Mode=OneWay}" />
+                                <controls:JsonViewer Margin="0,10,0,0"
+                                                     MinHeight="320"
+                                                     JsonText="{Binding CookieOutput, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
                     </ScrollViewer>
@@ -262,21 +247,18 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Token Input" />
-                                    <TextBox Margin="0,8,0,0"
-                                             Height="110"
-                                             Style="{StaticResource InputBox}"
-                                             AcceptsReturn="True"
-                                             TextWrapping="Wrap"
-                                             Text="{Binding JwtInspectInput, UpdateSourceTrigger=PropertyChanged}" />
+                                    <controls:FloatingLabelTextBox Height="110"
+                                                                   Label="Token Input"
+                                                                   AcceptsReturn="True"
+                                                                   TextWrapping="Wrap"
+                                                                   VerticalScrollBarVisibility="Auto"
+                                                                   Text="{Binding JwtInspectInput, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Encryption Key" />
-                                    <TextBox Margin="0,8,0,0"
-                                             Height="40"
-                                             Style="{StaticResource InputBox}"
-                                             Text="{Binding JwtInspectEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
+                                    <controls:FloatingLabelTextBox Height="56"
+                                                                   Label="Encryption Key"
+                                                                   Text="{Binding JwtInspectEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
                                     <TextBlock Margin="0,10,0,0"
                                                Style="{StaticResource BodyText}"
                                                Foreground="#5B6D68"
@@ -294,7 +276,7 @@
                                     <ColumnDefinition Width="180" />
                                 </Grid.ColumnDefinitions>
 
-                                <Button Width="148"
+                                <Button MinWidth="168"
                                         Style="{StaticResource IconPrimaryButton}"
                                         Tag="&#xE8A5;"
                                         IsEnabled="{Binding CanInspectJwt}"
@@ -302,7 +284,7 @@
                                         Content="{Binding InspectActionText}" />
 
                                 <Button Grid.Column="2"
-                                        Width="176"
+                                        MinWidth="192"
                                         Height="42"
                                         Style="{StaticResource IconSecondaryButton}"
                                         Tag="&#xE9D2;"
@@ -341,29 +323,23 @@
                                                Foreground="#5B6D68"
                                                Text="{Binding JwtInspectExpiryDetail}" />
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
-                                    <TextBox Margin="0,10,0,0"
-                                             MinHeight="240"
-                                             Style="{StaticResource CodeBox}"
-                                             IsReadOnly="True"
-                                             Text="{Binding JwtInspectHeader, Mode=OneWay}" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="240"
+                                                         JsonText="{Binding JwtInspectHeader, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="0" Grid.Column="2">
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Current JWT Payload" />
-                                    <TextBox Margin="0,10,0,0"
-                                             MinHeight="240"
-                                             Style="{StaticResource CodeBox}"
-                                             IsReadOnly="True"
-                                             Text="{Binding JwtInspectPayload, Mode=OneWay}" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="240"
+                                                         JsonText="{Binding JwtInspectPayload, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="0" Grid.Column="4">
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Decrypted Claim Values" />
-                                    <TextBox Margin="0,10,0,0"
-                                             MinHeight="240"
-                                             Style="{StaticResource CodeBox}"
-                                             IsReadOnly="True"
-                                             Text="{Binding JwtInspectDecryptedPayload, Mode=OneWay}" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="240"
+                                                         JsonText="{Binding JwtInspectDecryptedPayload, Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -389,21 +365,18 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Encrypted Payload" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="160"
-                                         Style="{StaticResource InputBox}"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Text="{Binding PayloadInput, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="160"
+                                                               Label="Encrypted Payload"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               Text="{Binding PayloadInput, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Encryption Key" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="40"
-                                         Style="{StaticResource InputBox}"
-                                         Text="{Binding PayloadEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="56"
+                                                               Label="Encryption Key"
+                                                               Text="{Binding PayloadEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Margin="0,10,0,0"
                                            Style="{StaticResource BodyText}"
                                            Foreground="#5B6D68"
@@ -418,11 +391,9 @@
 
                             <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Decrypted Payload" />
-                                <TextBox Margin="0,10,0,0"
-                                         MinHeight="360"
-                                         Style="{StaticResource CodeBox}"
-                                         IsReadOnly="True"
-                                         Text="{Binding PayloadOutput, Mode=OneWay}" />
+                                <controls:JsonViewer Margin="0,10,0,0"
+                                                     MinHeight="360"
+                                                     JsonText="{Binding PayloadOutput, Mode=OneWay}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="6"
@@ -430,7 +401,7 @@
                                         Grid.ColumnSpan="3"
                                         Orientation="Horizontal"
                                         HorizontalAlignment="Left">
-                                <Button Width="120"
+                                <Button MinWidth="150"
                                         Height="38"
                                         Margin="0,0,12,0"
                                         Style="{StaticResource IconSecondaryButton}"
@@ -438,14 +409,9 @@
                                         IsEnabled="{Binding CanCopyPayload}"
                                         Click="CopyPayloadButton_Click"
                                         Content="Copy Result" />
-                                <Button Width="120"
+                                <Button MinWidth="140"
                                         Height="38"
-                                        Background="#D5C4A1"
-                                        Foreground="#22322E"
-                                        BorderThickness="0"
-                                        FontSize="15"
-                                        FontWeight="SemiBold"
-                                        ContentTemplate="{StaticResource IconButtonContentTemplate}"
+                                        Style="{StaticResource IconSubtleButton}"
                                         Tag="&#xE894;"
                                         IsEnabled="{Binding CanClearPayload}"
                                         Click="ClearPayloadButton_Click"
@@ -474,31 +440,25 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Cookie JWT / Encrypted Cookie" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="110"
-                                         Style="{StaticResource InputBox}"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Text="{Binding CompareCookieJwt, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="110"
+                                                               Label="Cookie JWT / Encrypted Cookie"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               Text="{Binding CompareCookieJwt, UpdateSourceTrigger=PropertyChanged}" />
 
-                                <TextBlock Margin="0,14,0,0"
-                                           Style="{StaticResource FieldLabel}"
-                                           Text="Auth JWT" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="110"
-                                         Style="{StaticResource InputBox}"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Text="{Binding CompareAuthJwt, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="110"
+                                                               Label="Auth JWT"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               Text="{Binding CompareAuthJwt, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Fingerprint" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="40"
-                                         Style="{StaticResource InputBox}"
-                                         Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="56"
+                                                               Label="Fingerprint"
+                                                               Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Margin="0,14,0,0" Style="{StaticResource FieldLabel}" Text="Environment" />
                                 <ComboBox Margin="0,8,0,0"
                                           Height="40"
@@ -520,10 +480,9 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
-                                <TextBox Height="40"
-                                         Style="{StaticResource InputBox}"
-                                         VerticalContentAlignment="Center"
-                                         Text="{Binding CompareSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="56"
+                                                               Label="Search claims"
+                                                               Text="{Binding CompareSearchText, UpdateSourceTrigger=PropertyChanged}" />
 
                                 <CheckBox Grid.Column="2"
                                           VerticalAlignment="Center"
@@ -592,20 +551,16 @@
 
                                 <StackPanel Grid.Row="2" Grid.Column="0">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Auth Payload (Encrypted)" />
-                                    <TextBox Margin="0,10,0,0"
-                                             MinHeight="220"
-                                             Style="{StaticResource CodeBox}"
-                                             IsReadOnly="True"
-                                             Text="{Binding CompareAuthPayloadEncrypted, Mode=OneWay}" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="220"
+                                                         JsonText="{Binding CompareAuthPayloadEncrypted, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="2" Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Auth Payload (Decrypted)" />
-                                    <TextBox Margin="0,10,0,0"
-                                             MinHeight="220"
-                                             Style="{StaticResource CodeBox}"
-                                             IsReadOnly="True"
-                                             Text="{Binding CompareAuthPayloadDecrypted, Mode=OneWay}" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="220"
+                                                         JsonText="{Binding CompareAuthPayloadDecrypted, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="4"
@@ -613,7 +568,7 @@
                                             Grid.ColumnSpan="3"
                                             Orientation="Horizontal"
                                             HorizontalAlignment="Left">
-                                    <Button Width="140"
+                                    <Button MinWidth="160"
                                             Height="38"
                                             Margin="0,0,12,0"
                                             Style="{StaticResource IconSecondaryButton}"
@@ -621,7 +576,7 @@
                                             IsEnabled="{Binding CanCopyCompareCookieJson}"
                                             Click="CopyCompareCookieButton_Click"
                                             Content="Copy Cookie JSON" />
-                                    <Button Width="140"
+                                    <Button MinWidth="152"
                                             Height="38"
                                             Margin="0,0,12,0"
                                             Style="{StaticResource IconSecondaryButton}"
@@ -629,14 +584,9 @@
                                             IsEnabled="{Binding CanCopyCompareJson}"
                                             Click="CopyCompareAuthButton_Click"
                                             Content="Copy Auth JSON" />
-                                    <Button Width="140"
+                                    <Button MinWidth="132"
                                             Height="38"
-                                            Background="#D5C4A1"
-                                            Foreground="#22322E"
-                                            BorderThickness="0"
-                                            FontSize="15"
-                                            FontWeight="SemiBold"
-                                            ContentTemplate="{StaticResource IconButtonContentTemplate}"
+                                            Style="{StaticResource IconSubtleButton}"
                                             Tag="&#xE8C8;"
                                             IsEnabled="{Binding CanCopyCompareDiff}"
                                             Click="CopyCompareDiffButton_Click"
@@ -664,21 +614,24 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Token Input" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="130"
-                                         Style="{StaticResource InputBox}"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Text="{Binding JwtValidateInput, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="130"
+                                                               Label="Token Input"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               Text="{Binding JwtValidateInput, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Signing Key" />
-                                <TextBox Margin="0,8,0,0"
-                                         Height="130"
-                                         Style="{StaticResource CodeBox}"
-                                         Text="{Binding JwtValidateKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="130"
+                                                               Label="Signing Key"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               HorizontalScrollBarVisibility="Auto"
+                                                               InputFontFamily="Consolas"
+                                                               InputFontSize="12.5"
+                                                               Text="{Binding JwtValidateKey, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Margin="0,10,0,0"
                                            Style="{StaticResource BodyText}"
                                            Foreground="#5B6D68"

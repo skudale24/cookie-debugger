@@ -1,6 +1,5 @@
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CookieDebugger.Models;
 
 namespace CookieDebugger.State;
@@ -26,24 +25,16 @@ public sealed class UserStateStore
         }
 
         await using var stream = File.OpenRead(_stateFilePath);
-        var state = await JsonSerializer.DeserializeAsync(
-            stream,
-            UserStateJsonContext.Default.UserState);
+        var state = await JsonSerializer.DeserializeAsync<UserState>(stream);
         return state ?? new UserState();
     }
 
     public async Task SaveAsync(UserState state)
     {
         await using var stream = File.Create(_stateFilePath);
-        await JsonSerializer.SerializeAsync(
-            stream,
-            state,
-            UserStateJsonContext.Default.UserState);
+        await JsonSerializer.SerializeAsync(stream, state, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
     }
-}
-
-[JsonSourceGenerationOptions(WriteIndented = true)]
-[JsonSerializable(typeof(UserState))]
-internal sealed partial class UserStateJsonContext : JsonSerializerContext
-{
 }

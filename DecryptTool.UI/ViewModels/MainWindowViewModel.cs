@@ -484,7 +484,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = 1;
             JwtInspectInput = input;
-            SetStatus(NeutralBrush, "JWT detected. Routed to JWT Inspect.");
+            SetStatus(NeutralBrush, "JWT detected. Opened the View Token tab.");
             await InspectJwtAsync();
             return;
         }
@@ -493,7 +493,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = 0;
             CookieInput = input;
-            SetStatus(NeutralBrush, "Cookie-like input detected. Routed to Cookie Decrypt.");
+            SetStatus(NeutralBrush, "Cookie-like input detected. Opened the Decode Cookie tab.");
             return;
         }
 
@@ -501,13 +501,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = 2;
             PayloadInput = input;
-            SetStatus(NeutralBrush, "Encrypted payload detected. Routed to Payload Decrypt.");
+            SetStatus(NeutralBrush, "Encrypted payload detected. Opened the Decode Payload tab.");
             return;
         }
 
         SelectedTabIndex = 0;
         CookieInput = input;
-        SetStatus(WarningBrush, "⚠ Could not classify the input confidently. Routed to Cookie Decrypt.");
+        SetStatus(WarningBrush, "⚠ Could not classify the input confidently. Opened the Decode Cookie tab.");
     }
 
     public async Task DecryptCookieAsync()
@@ -707,7 +707,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         CompareCookieJwt = _lastCookieJwt;
         SelectedTabIndex = 3;
-        SetStatus(NeutralBrush, "Cookie JWT sent to Compare Tokens.");
+        SetStatus(NeutralBrush, "Cookie JWT sent to the Compare Tokens tab.");
     }
 
     public void SendInspectToCompare()
@@ -719,7 +719,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         CompareAuthJwt = DecryptService.NormalizeJwtInput(JwtInspectInput);
         SelectedTabIndex = 3;
-        SetStatus(NeutralBrush, "JWT sent to Compare Tokens.");
+        SetStatus(NeutralBrush, "JWT sent to the Compare Tokens tab.");
     }
 
     public void ClearPayload()
