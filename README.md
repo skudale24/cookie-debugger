@@ -20,30 +20,30 @@ Then edit `appsettings.json` and replace the placeholder values with your real s
 
 `appsettings.json` is local-only and is ignored by Git.
 
-## Interactive Mode
+## CLI Usage
 
 ```bash
-dotnet run
+dotnet run -- --help
 ```
 
 Or after publishing:
 
 ```bash
-bcd
+tok --help
 ```
 
-Running with no arguments opens the interactive console flow.
+Running with no arguments shows command help.
 
 ## CLI Commands
 
 Top-level commands:
 
 ```bash
-bcd jwt ...
-bcd har <file.har>
-bcd decrypt <ciphertext>
-bcd completion powershell
-bcd completion bash
+tok jwt ...
+tok har <file.har>
+tok decrypt <ciphertext>
+tok completion powershell
+tok completion bash
 ```
 
 ### JWT Commands
@@ -51,22 +51,22 @@ bcd completion bash
 Grouped under `jwt`:
 
 ```bash
-bcd jwt cookie --cookie <cookie> --fingerprint <fingerprint> [--environment Dev|Stage|Production]
-bcd jwt inspect <jwt>
-bcd jwt decode <jwt>
-bcd jwt validate <jwt>
-bcd jwt can-read <value>
+tok jwt cookie --cookie <cookie> --fingerprint <fingerprint> [--environment Dev|Stage|Production]
+tok jwt inspect <jwt>
+tok jwt decode <jwt>
+tok jwt validate <jwt>
+tok jwt can-read <value>
 ```
 
 Shortcuts:
 
 ```bash
-bcd jwt c --cookie <cookie> --fingerprint <fingerprint>
-bcd jwt i <jwt>
-bcd jwt d <jwt>
-bcd jwt v <jwt>
-bcd jwt cr <value>
-bcd jwt canread <value>
+tok jwt c --cookie <cookie> --fingerprint <fingerprint>
+tok jwt i <jwt>
+tok jwt d <jwt>
+tok jwt v <jwt>
+tok jwt cr <value>
+tok jwt canread <value>
 ```
 
 What each command does:
@@ -88,39 +88,39 @@ PowerShell and bash tab completion are supported.
 Preview the PowerShell script:
 
 ```powershell
-bcd completion powershell
+tok completion powershell
 ```
 
 Enable it for the current session:
 
 ```powershell
-bcd completion powershell | Out-String | Invoke-Expression
+tok completion powershell | Out-String | Invoke-Expression
 ```
 
 Persist it in your PowerShell profile:
 
 ```powershell
-"`n# bcd completions`n$(bcd completion powershell | Out-String)" | Add-Content $PROFILE
+"`n# tok completions`n$(tok completion powershell | Out-String)" | Add-Content $PROFILE
 ```
 
 Preview the bash script:
 
 ```bash
-bcd completion bash
+tok completion bash
 ```
 
 Enable it for the current shell:
 
 ```bash
-eval "$(bcd completion bash)"
+eval "$(tok completion bash)"
 ```
 
 Persist it in your shell startup file:
 
 ```bash
 echo '' >> ~/.bashrc
-echo '# bcd completions' >> ~/.bashrc
-echo 'eval "$(bcd completion bash)"' >> ~/.bashrc
+echo '# tok completions' >> ~/.bashrc
+echo 'eval "$(tok completion bash)"' >> ~/.bashrc
 ```
 
 After loading the script, `Tab` completion works for:
@@ -154,7 +154,7 @@ bin/Release/net8.0/win-x64/publish/
 The published executable is:
 
 ```text
-bin/Release/net8.0/win-x64/publish/BlazorCookieDebugger.exe
+bin/Release/net8.0/win-x64/publish/tok.exe
 ```
 
 ## Build Script

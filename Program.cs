@@ -1,7 +1,6 @@
 using CookieDebugger.Commands;
 using CookieDebugger.Infrastructure;
 using CookieDebugger.Services;
-using CookieDebugger.State;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console.Cli;
@@ -20,10 +19,8 @@ services.AddSingleton<HarFileParser>();
 services.AddSingleton<FingerprintDecryptor>();
 services.AddSingleton<JwtDecryptor>();
 services.AddSingleton<JwtInspector>();
-services.AddSingleton<UserStateStore>();
 services.AddSingleton<DebuggerService>();
 services.AddSingleton<ConsolePresenter>();
-services.AddSingleton<InteractiveModeService>();
 services.AddSingleton<CompletionService>();
 
 var registrar = new TypeRegistrar(services);
@@ -31,7 +28,7 @@ var app = new CommandApp(registrar);
 
 app.Configure(config =>
 {
-    config.SetApplicationName("bcd");
+    config.SetApplicationName("tok");
 
     config.AddBranch("jwt", jwt =>
     {
@@ -73,11 +70,11 @@ app.Configure(config =>
         completion.AddCommand<PowerShellCompletionCommand>("powershell")
             .WithAlias("pwsh")
             .WithAlias("ps")
-            .WithDescription("Print a PowerShell script that enables tab completion for bcd.")
+            .WithDescription("Print a PowerShell script that enables tab completion for tok.")
             .WithExample(new[] { "completion", "powershell" });
         completion.AddCommand<BashCompletionCommand>("bash")
             .WithAlias("sh")
-            .WithDescription("Print a bash completion script for bcd.")
+            .WithDescription("Print a bash completion script for tok.")
             .WithExample(new[] { "completion", "bash" });
     });
 });
@@ -91,7 +88,7 @@ if (args.Length > 0 && string.Equals(args[0], "__complete", StringComparison.Ord
 
 if (args.Length == 0)
 {
-    return await provider.GetRequiredService<InteractiveModeService>().RunAsync();
+    return await app.RunAsync(["--help"]);
 }
 
 return await app.RunAsync(args);

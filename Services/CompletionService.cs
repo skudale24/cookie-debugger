@@ -13,7 +13,7 @@ public sealed class CompletionService
     public string BuildPowerShellScript()
     {
         return """
-$commandNames = @('bcd', 'BlazorCookieDebugger', 'BlazorCookieDebugger.exe')
+$commandNames = @('tok', 'tok.exe')
 
 Register-ArgumentCompleter -Native -CommandName $commandNames -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
@@ -32,7 +32,7 @@ Register-ArgumentCompleter -Native -CommandName $commandNames -ScriptBlock {
     public string BuildBashScript()
     {
         return """
-_bcd_completions() {
+_tok_completions() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local exe="${COMP_WORDS[0]}"
     local words=("${COMP_WORDS[@]:1}")
@@ -40,7 +40,7 @@ _bcd_completions() {
     mapfile -t COMPREPLY < <("$exe" __complete --shell bash --word "$cur" -- "${words[@]}" 2>/dev/null)
 }
 
-complete -F _bcd_completions bcd BlazorCookieDebugger BlazorCookieDebugger.exe
+complete -F _tok_completions tok tok.exe
 """;
     }
 
