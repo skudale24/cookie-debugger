@@ -51,12 +51,5 @@ public sealed class AppSettingsProvider
         {
             throw new InvalidOperationException("appsettings.json is missing one or more pass phrases.");
         }
-
-        if (settings.FingerprintDecryption is null ||
-            string.IsNullOrWhiteSpace(settings.FingerprintDecryption.Key) ||
-            string.IsNullOrWhiteSpace(settings.FingerprintDecryption.IV))
-        {
-            throw new InvalidOperationException("appsettings.json is missing the fingerprint decryption key or IV.");
-        }
     }
 }

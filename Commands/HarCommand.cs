@@ -40,7 +40,7 @@ public sealed class HarSettings : CommandSettings
     [CommandArgument(0, "<file>")]
     public string FilePath { get; init; } = string.Empty;
 
-    [CommandOption("-e|--environment <ENVIRONMENT>")]
+    [CommandOption("--env|--environment <ENVIRONMENT>")]
     public AppEnvironment Environment { get; init; } = AppEnvironment.Dev;
 
     public override ValidationResult Validate()

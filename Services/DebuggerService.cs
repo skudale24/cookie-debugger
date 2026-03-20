@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using CookieDebugger.Models;
+using Microsoft.IdentityModel.Tokens;
 
 namespace CookieDebugger.Services;
 
@@ -11,6 +12,7 @@ public sealed class DebuggerService(
     AppSettingsProvider settingsProvider,
     CookieParser cookieParser,
     HarFileParser harFileParser,
+    SecretResolver secretResolver,
     FingerprintDecryptor fingerprintDecryptor,
     JwtDecryptor jwtDecryptor,
     JwtInspector jwtInspector)
@@ -49,11 +51,11 @@ public sealed class DebuggerService(
         }
 
         var harExtraction = harFileParser.Extract(normalizedPath);
-        var settings = settingsProvider.Settings;
+        var encryptionKey = secretResolver.ResolveEncryptionKey();
         var fingerprint = fingerprintDecryptor.Decrypt(
             harExtraction.EncryptedFingerprint,
-            settings.FingerprintDecryption.Key,
-            settings.FingerprintDecryption.IV);
+            encryptionKey,
+            encryptionKey);
 
         return new HarDebugResult
         {
@@ -121,11 +123,16 @@ public sealed class DebuggerService(
         };
     }
 
-    public JwtValidationResult ValidateRawJwt(string jwt)
+    public JwtValidationResult ValidateRawJwt(string jwt, string key)
     {
         if (string.IsNullOrWhiteSpace(jwt))
         {
             throw new ArgumentException("A JWT string is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new ArgumentException("A signing key is required.");
         }
 
         var trimmed = jwt.Trim();
@@ -136,6 +143,7 @@ public sealed class DebuggerService(
             {
                 Jwt = trimmed,
                 CanRead = false,
+                SignatureValid = false,
                 HasExpiration = false,
                 IsExpired = false,
                 IsNotYetValid = false,
@@ -145,8 +153,7 @@ public sealed class DebuggerService(
                 ExpiresReadable = "N/A",
                 Messages = new[]
                 {
-                    "The token could not be parsed as a JWT.",
-                    "Signature verification is not performed by this command."
+                    "The token could not be parsed as a JWT."
                 }
             };
         }
@@ -158,12 +165,44 @@ public sealed class DebuggerService(
         var nowUtc = DateTimeOffset.UtcNow;
         var isExpired = report.IsExpired;
         var isNotYetValid = hasNotBefore && token.ValidFrom > nowUtc.UtcDateTime;
-        var isLifetimeCurrentlyValid = readability.CanRead && (!hasExpiration || !isExpired) && !isNotYetValid;
 
         var messages = new List<string>
         {
             "Structure is readable as a JWT."
         };
+
+        var signatureValid = false;
+        try
+        {
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
+                RequireSignedTokens = true
+            };
+
+            new JwtSecurityTokenHandler().ValidateToken(trimmed, validationParameters, out _);
+            signatureValid = true;
+            messages.Add("Signature validation succeeded with the provided key.");
+        }
+        catch (SecurityTokenExpiredException)
+        {
+            signatureValid = true;
+            messages.Add("Signature validation succeeded, but the token is expired.");
+        }
+        catch (SecurityTokenNotYetValidException)
+        {
+            signatureValid = true;
+            messages.Add("Signature validation succeeded, but the token is not yet valid.");
+        }
+        catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
+        {
+            messages.Add($"Signature validation failed: {ex.Message}");
+        }
 
         if (!hasExpiration)
         {
@@ -185,12 +224,13 @@ public sealed class DebuggerService(
                 : "The token is within its nbf validity window.");
         }
 
-        messages.Add("Signature verification is not performed by this command.");
+        var isLifetimeCurrentlyValid = signatureValid && (!hasExpiration || !isExpired) && !isNotYetValid;
 
         return new JwtValidationResult
         {
             Jwt = trimmed,
             CanRead = readability.CanRead,
+            SignatureValid = signatureValid,
             HasExpiration = hasExpiration,
             IsExpired = isExpired,
             IsNotYetValid = isNotYetValid,
@@ -209,11 +249,11 @@ public sealed class DebuggerService(
             throw new ArgumentException("Encrypted payload is required.");
         }
 
-        var settings = settingsProvider.Settings;
+        var encryptionKey = secretResolver.ResolveEncryptionKey();
         return fingerprintDecryptor.Decrypt(
             encryptedText,
-            settings.FingerprintDecryption.Key,
-            settings.FingerprintDecryption.IV);
+            encryptionKey,
+            encryptionKey);
     }
 
     public string TryDecryptClaimValue(string rawValue)
@@ -223,14 +263,14 @@ public sealed class DebuggerService(
             return rawValue;
         }
 
-        var settings = settingsProvider.Settings;
+        var encryptionKey = secretResolver.ResolveEncryptionKey();
 
         try
         {
             return fingerprintDecryptor.Decrypt(
                 rawValue,
-                settings.FingerprintDecryption.Key,
-                settings.FingerprintDecryption.IV);
+                encryptionKey,
+                encryptionKey);
         }
         catch (FormatException)
         {

@@ -2,12 +2,13 @@ namespace CookieDebugger.Services;
 
 public sealed class CompletionService
 {
-    private static readonly string[] TopLevelCommands = ["jwt", "har", "decrypt", "completion"];
+    private static readonly string[] TopLevelCommands = ["inspect", "validate", "decrypt", "har", "completion"];
     private static readonly string[] TopLevelOptions = ["--help", "-h"];
-    private static readonly string[] JwtCommands = ["cookie", "c", "inspect", "i", "decode", "d", "validate", "v", "can-read", "cr", "canread"];
     private static readonly string[] EnvironmentValues = ["Dev", "Stage", "Production"];
-    private static readonly string[] JwtCookieOptions = ["--cookie", "-c", "--fingerprint", "-f", "--environment", "-e", "--help", "-h"];
-    private static readonly string[] HarOptions = ["--environment", "-e", "--help", "-h"];
+    private static readonly string[] AutoDetectOptions = ["--fp", "--fingerprint", "--env", "--environment", "--help", "-h"];
+    private static readonly string[] DecryptOptions = ["--fp", "--fingerprint", "--env", "--environment", "--help", "-h"];
+    private static readonly string[] ValidateOptions = ["--key", "-k", "--help", "-h"];
+    private static readonly string[] HarOptions = ["--env", "--environment", "--help", "-h"];
     private static readonly string[] CompletionCommands = ["powershell", "pwsh", "ps", "bash", "sh"];
 
     public string BuildPowerShellScript()
@@ -96,44 +97,52 @@ complete -F _tok_completions tok tok.exe
             var first = effectiveTokens[0];
             suggestions = first switch
             {
-                "jwt" => GetJwtSuggestions(effectiveTokens.Skip(1).ToArray(), currentWord),
+                "inspect" => FilterStartsWith(TopLevelOptions, currentWord),
+                "validate" => GetValidateSuggestions(effectiveTokens.Skip(1).ToArray(), currentWord),
+                "decrypt" => GetDecryptSuggestions(effectiveTokens.Skip(1).ToArray(), currentWord),
                 "har" => GetHarSuggestions(effectiveTokens.Skip(1).ToArray(), currentWord),
-                "decrypt" => GetDecryptSuggestions(currentWord),
                 "completion" => GetCompletionSuggestions(effectiveTokens.Skip(1).ToArray(), currentWord),
-                _ => FilterStartsWith(TopLevelCommands.Concat(TopLevelOptions), currentWord)
+                _ => GetAutoDetectSuggestions(effectiveTokens, currentWord)
             };
         }
 
         return FormatSuggestionsForShell(suggestions, shell);
     }
 
-    private static IReadOnlyList<string> GetJwtSuggestions(IReadOnlyList<string> tokens, string currentWord)
-    {
-        if (tokens.Count == 0)
-        {
-            return FilterStartsWith(JwtCommands.Concat(TopLevelOptions), currentWord);
-        }
-
-        var command = tokens[0];
-        var commandTokens = tokens.Skip(1).ToArray();
-
-        return command switch
-        {
-            "cookie" or "c" => GetJwtCookieSuggestions(commandTokens, currentWord),
-            "inspect" or "i" or "decode" or "d" or "validate" or "v" or "can-read" or "cr" or "canread"
-                => FilterStartsWith(TopLevelOptions, currentWord),
-            _ => FilterStartsWith(JwtCommands.Concat(TopLevelOptions), currentWord)
-        };
-    }
-
-    private static IReadOnlyList<string> GetJwtCookieSuggestions(IReadOnlyList<string> tokens, string currentWord)
+    private static IReadOnlyList<string> GetAutoDetectSuggestions(IReadOnlyList<string> tokens, string currentWord)
     {
         if (ShouldSuggestEnvironment(tokens))
         {
             return FilterStartsWith(EnvironmentValues, currentWord);
         }
 
-        return FilterStartsWith(JwtCookieOptions.Except(tokens, StringComparer.Ordinal), currentWord);
+        if (LooksLikeOption(currentWord))
+        {
+            return FilterStartsWith(AutoDetectOptions.Except(tokens, StringComparer.Ordinal), currentWord);
+        }
+
+        var fileSuggestions = GetHarFileSuggestions(currentWord);
+        if (fileSuggestions.Count > 0)
+        {
+            return fileSuggestions;
+        }
+
+        return FilterStartsWith(TopLevelCommands.Concat(AutoDetectOptions), currentWord);
+    }
+
+    private static IReadOnlyList<string> GetValidateSuggestions(IReadOnlyList<string> tokens, string currentWord)
+    {
+        return FilterStartsWith(ValidateOptions.Except(tokens, StringComparer.Ordinal), currentWord);
+    }
+
+    private static IReadOnlyList<string> GetDecryptSuggestions(IReadOnlyList<string> tokens, string currentWord)
+    {
+        if (ShouldSuggestEnvironment(tokens))
+        {
+            return FilterStartsWith(EnvironmentValues, currentWord);
+        }
+
+        return FilterStartsWith(DecryptOptions.Except(tokens, StringComparer.Ordinal), currentWord);
     }
 
     private static IReadOnlyList<string> GetHarSuggestions(IReadOnlyList<string> tokens, string currentWord)
@@ -157,11 +166,6 @@ complete -F _tok_completions tok tok.exe
         return FilterStartsWith(HarOptions.Except(tokens, StringComparer.Ordinal), currentWord);
     }
 
-    private static IReadOnlyList<string> GetDecryptSuggestions(string currentWord)
-    {
-        return FilterStartsWith(TopLevelOptions, currentWord);
-    }
-
     private static IReadOnlyList<string> GetCompletionSuggestions(IReadOnlyList<string> tokens, string currentWord)
     {
         if (tokens.Count == 0)
@@ -181,7 +185,7 @@ complete -F _tok_completions tok tok.exe
 
         var last = tokens[^1];
         return string.Equals(last, "--environment", StringComparison.Ordinal) ||
-               string.Equals(last, "-e", StringComparison.Ordinal);
+               string.Equals(last, "--env", StringComparison.Ordinal);
     }
 
     private static bool LooksLikeOption(string currentWord)

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using CookieDebugger.Models;
 using CookieDebugger.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -20,8 +21,8 @@ public sealed class DecryptCommand : Command<DecryptSettings>
     {
         try
         {
-            var clearText = _debuggerService.DecryptPayload(settings.CipherText);
-            _consolePresenter.WriteClearText(clearText);
+            var result = _debuggerService.InspectCookie(settings.Cookie, settings.Fingerprint, settings.Environment);
+            _consolePresenter.WriteCookieInspection(result);
             return 0;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or CryptographicException)
@@ -36,13 +37,27 @@ public sealed class DecryptCommand : Command<DecryptSettings>
 
 public sealed class DecryptSettings : CommandSettings
 {
-    [CommandArgument(0, "<ciphertext>")]
-    public string CipherText { get; init; } = string.Empty;
+    [CommandArgument(0, "<cookie>")]
+    public string Cookie { get; init; } = string.Empty;
+
+    [CommandOption("--fp|--fingerprint <FINGERPRINT>")]
+    public string Fingerprint { get; init; } = string.Empty;
+
+    [CommandOption("--env|--environment <ENVIRONMENT>")]
+    public AppEnvironment Environment { get; init; } = AppEnvironment.Dev;
 
     public override ValidationResult Validate()
     {
-        return string.IsNullOrWhiteSpace(CipherText)
-            ? ValidationResult.Error("An encrypted payload is required.")
-            : ValidationResult.Success();
+        if (string.IsNullOrWhiteSpace(Cookie))
+        {
+            return ValidationResult.Error("An encrypted cookie string is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Fingerprint))
+        {
+            return ValidationResult.Error("A fingerprint is required. Use --fp.");
+        }
+
+        return ValidationResult.Success();
     }
 }

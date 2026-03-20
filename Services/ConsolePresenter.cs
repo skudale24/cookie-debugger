@@ -133,6 +133,7 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
         statusTable.AddColumn("[cyan]Check[/]");
         statusTable.AddColumn("[cyan]Result[/]");
         statusTable.AddRow("Readable", result.CanRead ? "[green]Yes[/]" : "[red]No[/]");
+        statusTable.AddRow("Signature Valid", result.SignatureValid ? "[green]Yes[/]" : "[red]No[/]");
         statusTable.AddRow("Has exp", result.HasExpiration ? "[green]Yes[/]" : "[yellow]No[/]");
         statusTable.AddRow("Expired", result.IsExpired ? "[red]Yes[/]" : "[green]No[/]");
         statusTable.AddRow("Not Yet Valid", result.IsNotYetValid ? "[yellow]Yes[/]" : "[green]No[/]");
@@ -147,7 +148,7 @@ public sealed class ConsolePresenter(DebuggerService debuggerService)
             new Panel(new Markup($"[bold]nbf[/]\n{EscapeMarkup(result.NotBeforeReadable)}")).Border(BoxBorder.Rounded));
         timing.AddRow(
             new Panel(new Markup($"[bold]exp[/]\n{EscapeMarkup(result.ExpiresReadable)}")).Border(BoxBorder.Rounded),
-            new Panel(new Markup("[bold]Note[/]\n[grey]Signature verification is not performed.[/]")).Border(BoxBorder.Rounded));
+            new Panel(new Markup($"[bold]Signature[/]\n{(result.SignatureValid ? "[green]Verified[/]" : "[red]Invalid[/]")}")).Border(BoxBorder.Rounded));
         AnsiConsole.Write(timing);
 
         var messages = new Rows(result.Messages.Select(message => new Markup($"[grey]-[/] {EscapeMarkup(message)}")));

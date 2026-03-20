@@ -1,6 +1,6 @@
 # Cookie Debugger
 
-Console utility for decrypting and inspecting cookies/JWTs, comparing cookie and auth JWT claims from HAR files, decrypting pasted encrypted request/response payloads, and automating common JWT workflows from the command line.
+Console utility for decrypting and inspecting cookies/JWTs, comparing cookie and auth JWT claims from HAR files, and automating common JWT workflows from the command line.
 
 ## Local Setup
 
@@ -34,52 +34,41 @@ tok --help
 
 Running with no arguments shows command help.
 
-## CLI Commands
+## Commands
 
-Top-level commands:
-
-```bash
-tok jwt ...
-tok har <file.har>
-tok decrypt <ciphertext>
-tok completion powershell
-tok completion bash
-```
-
-### JWT Commands
-
-Grouped under `jwt`:
+Primary commands:
 
 ```bash
-tok jwt cookie --cookie <cookie> --fingerprint <fingerprint> [--environment Dev|Stage|Production]
-tok jwt inspect <jwt>
-tok jwt decode <jwt>
-tok jwt validate <jwt>
-tok jwt can-read <value>
+tok <input>
+tok decrypt <cookie> --fp <fingerprint> --env <env>
+tok inspect <jwt>
+tok validate <jwt> --key <key>
+tok har <file>
 ```
 
-Shortcuts:
+How `tok <input>` auto-detects:
+
+- JWT -> `inspect`
+- Encrypted cookie -> `decrypt`
+- HAR file -> `har`
+
+Notes:
+
+- For encrypted cookie auto-detection, pass `--fp` and optionally `--env` alongside the input.
+- `validate` verifies the JWT signature using the supplied symmetric key and also checks lifetime validity.
+- `har` defaults to `Dev` unless you pass `--env`.
+
+Examples:
 
 ```bash
-tok jwt c --cookie <cookie> --fingerprint <fingerprint>
-tok jwt i <jwt>
-tok jwt d <jwt>
-tok jwt v <jwt>
-tok jwt cr <value>
-tok jwt canread <value>
+tok eyJhbGciOi...
+tok "C:\Users\me\Downloads\session.har"
+tok <encrypted-cookie> --fp 1303908839 --env Dev
+tok decrypt <encrypted-cookie> --fp 1303908839 --env Dev
+tok inspect <jwt>
+tok validate <jwt> --key my-signing-key
+tok har session.har --env Stage
 ```
-
-What each command does:
-
-- `jwt cookie` decrypts the cookie JWT using the supplied cookie string and fingerprint, then prints the decoded token details.
-- `jwt inspect` shows the raw JWT, claims, header JSON, payload JSON, and token timing details.
-- `jwt decode` gives a more compact decode view focused on the token structure and timing.
-- `jwt validate` performs readability and lifetime checks only. It does not verify the signature.
-- `jwt can-read` is a quick structural check to tell whether a value can be parsed as a JWT.
-- `har` extracts the cookie/auth JWTs from a HAR and compares them.
-- `decrypt` decrypts an encrypted request/response payload using the configured AES key and IV.
-- `completion powershell` prints a PowerShell tab-completion script for the CLI.
-- `completion bash` prints a bash completion script for the CLI.
 
 ## Autocomplete
 
@@ -125,11 +114,10 @@ echo 'eval "$(tok completion bash)"' >> ~/.bashrc
 
 After loading the script, `Tab` completion works for:
 
-- top-level commands like `jwt`, `har`, `decrypt`, and `completion`
-- JWT subcommands like `cookie`, `inspect`, `decode`, `validate`, and `can-read`
-- command options such as `--environment`
+- top-level commands like `inspect`, `validate`, `decrypt`, `har`, and `completion`
+- command options such as `--fp`, `--env`, and `--key`
 - environment values like `Dev`, `Stage`, and `Production`
-- `.har` file paths for the `har` command
+- `.har` file paths for `tok har` and auto-detect input
 
 ## Build
 

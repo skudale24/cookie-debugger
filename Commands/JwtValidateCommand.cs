@@ -9,20 +9,23 @@ public sealed class JwtValidateCommand : Command<JwtValidateSettings>
 {
     private readonly DebuggerService _debuggerService;
     private readonly ConsolePresenter _consolePresenter;
+    private readonly SecretResolver _secretResolver;
 
-    public JwtValidateCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter)
+    public JwtValidateCommand(DebuggerService debuggerService, ConsolePresenter consolePresenter, SecretResolver secretResolver)
     {
         _debuggerService = debuggerService;
         _consolePresenter = consolePresenter;
+        _secretResolver = secretResolver;
     }
 
     public override int Execute(CommandContext context, JwtValidateSettings settings)
     {
         try
         {
-            var result = _debuggerService.ValidateRawJwt(settings.Jwt);
+            var signingKey = _secretResolver.ResolveJwtSigningKey(settings.Key);
+            var result = _debuggerService.ValidateRawJwt(settings.Jwt, signingKey);
             _consolePresenter.WriteJwtValidation(result);
-            return result.CanRead && result.IsLifetimeCurrentlyValid ? 0 : -1;
+            return result.CanRead && result.SignatureValid && result.IsLifetimeCurrentlyValid ? 0 : -1;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or CryptographicException)
         {
@@ -39,10 +42,16 @@ public sealed class JwtValidateSettings : CommandSettings
     [CommandArgument(0, "<jwt>")]
     public string Jwt { get; init; } = string.Empty;
 
+    [CommandOption("--key|-k <KEY>")]
+    public string Key { get; init; } = string.Empty;
+
     public override ValidationResult Validate()
     {
-        return string.IsNullOrWhiteSpace(Jwt)
-            ? ValidationResult.Error("A JWT string is required.")
-            : ValidationResult.Success();
+        if (string.IsNullOrWhiteSpace(Jwt))
+        {
+            return ValidationResult.Error("A JWT string is required.");
+        }
+
+        return ValidationResult.Success();
     }
 }

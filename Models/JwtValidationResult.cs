@@ -6,6 +6,8 @@ public sealed class JwtValidationResult
 
     public required bool CanRead { get; init; }
 
+    public required bool SignatureValid { get; init; }
+
     public required bool HasExpiration { get; init; }
 
     public required bool IsExpired { get; init; }

@@ -22,6 +22,7 @@ services.AddSingleton<JwtInspector>();
 services.AddSingleton<DebuggerService>();
 services.AddSingleton<ConsolePresenter>();
 services.AddSingleton<CompletionService>();
+services.AddSingleton<SecretResolver>();
 
 var registrar = new TypeRegistrar(services);
 var app = new CommandApp(registrar);
@@ -30,39 +31,21 @@ app.Configure(config =>
 {
     config.SetApplicationName("tok");
 
-    config.AddBranch("jwt", jwt =>
-    {
-        jwt.SetDescription("Work with JWTs from cookies or raw token strings.");
-        jwt.AddCommand<JwtCookieCommand>("cookie")
-            .WithAlias("c")
-            .WithDescription("Decrypt and inspect a cookie JWT using a cookie string and fingerprint.")
-            .WithExample(new[] { "jwt", "cookie", "--cookie", "<cookie>", "--fingerprint", "<fingerprint>" });
-        jwt.AddCommand<JwtInspectCommand>("inspect")
-            .WithAlias("i")
-            .WithDescription("Inspect a raw JWT string and render its header, claims, and token status.")
-            .WithExample(new[] { "jwt", "inspect", "<jwt>" });
-        jwt.AddCommand<JwtDecodeCommand>("decode")
-            .WithAlias("d")
-            .WithDescription("Decode a raw JWT and render the header, payload, and token status.")
-            .WithExample(new[] { "jwt", "decode", "<jwt>" });
-        jwt.AddCommand<JwtValidateCommand>("validate")
-            .WithAlias("v")
-            .WithDescription("Validate a raw JWT for readability and lifetime checks without verifying the signature.")
-            .WithExample(new[] { "jwt", "validate", "<jwt>" });
-        jwt.AddCommand<JwtCanReadCommand>("can-read")
-            .WithAlias("cr")
-            .WithAlias("canread")
-            .WithDescription("Quickly check whether a value can be read as a JWT.")
-            .WithExample(new[] { "jwt", "can-read", "<value>" });
-    });
-
     config.AddCommand<HarCommand>("har")
-        .WithDescription("Extract auth data from a HAR file and compare the cookie JWT with the auth JWT.")
+        .WithDescription("Extract auth data from a HAR file and compare the cookie JWT with the auth JWT. Uses TOK_ENCRYPTION_KEY or prompts if missing.")
         .WithExample(new[] { "har", "session.har" });
 
     config.AddCommand<DecryptCommand>("decrypt")
-        .WithDescription("Decrypt an encrypted request or response payload.")
-        .WithExample(new[] { "decrypt", "<ciphertext>" });
+        .WithDescription("Decrypt and inspect an encrypted cookie using a fingerprint and environment.")
+        .WithExample(new[] { "decrypt", "<cookie>", "--fp", "<fingerprint>", "--env", "Dev" });
+
+    config.AddCommand<JwtInspectCommand>("inspect")
+        .WithDescription("Inspect a raw JWT string and render its header, claims, and token status.")
+        .WithExample(new[] { "inspect", "<jwt>" });
+
+    config.AddCommand<JwtValidateCommand>("validate")
+        .WithDescription("Validate a raw JWT using --key or TOK_JWT_SIGNING_KEY, prompting if missing.")
+        .WithExample(new[] { "validate", "<jwt>", "--key", "<key>" });
 
     config.AddBranch("completion", completion =>
     {
@@ -78,6 +61,7 @@ app.Configure(config =>
             .WithExample(new[] { "completion", "bash" });
     });
 });
+app.SetDefaultCommand<AutoDetectCommand>();
 
 using var provider = services.BuildServiceProvider();
 
