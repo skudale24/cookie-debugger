@@ -6,6 +6,8 @@ public sealed class ClaimDiff
 
     public required string CookieValue { get; init; }
 
+    public required string AuthEncryptedValue { get; init; }
+
     public required string AuthValue { get; init; }
 
     public required string Status { get; init; }

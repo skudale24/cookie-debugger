@@ -94,9 +94,9 @@ public partial class MainWindow : Window
 
     private void CopyCompareAuthButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!string.IsNullOrWhiteSpace(_viewModel.CompareAuthPayloadDecrypted))
+        if (!string.IsNullOrWhiteSpace(_viewModel.CompareAuthPayloadEncrypted))
         {
-            Clipboard.SetText(_viewModel.CompareAuthPayloadDecrypted);
+            Clipboard.SetText(_viewModel.CompareAuthPayloadEncrypted);
         }
     }
 

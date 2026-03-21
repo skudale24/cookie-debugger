@@ -442,7 +442,7 @@ public sealed class DecryptService(
             }
         }
 
-        var differences = BuildClaimDiffs(cookieClaims, decryptedAuthClaims);
+        var differences = BuildClaimDiffs(cookieClaims, authClaims, decryptedAuthClaims);
 
         return await Task.FromResult(new TokenComparisonResult
         {
@@ -914,9 +914,11 @@ public sealed class DecryptService(
 
     private static IReadOnlyList<ClaimDiff> BuildClaimDiffs(
         IReadOnlyDictionary<string, string> cookieClaims,
+        IReadOnlyDictionary<string, string> authEncryptedClaims,
         IReadOnlyDictionary<string, string> authClaims)
     {
         var allClaims = cookieClaims.Keys
+            .Concat(authEncryptedClaims.Keys)
             .Concat(authClaims.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(key => key, StringComparer.OrdinalIgnoreCase);
@@ -925,8 +927,10 @@ public sealed class DecryptService(
         foreach (var claim in allClaims)
         {
             var hasCookie = cookieClaims.TryGetValue(claim, out var cookieValue);
+            var hasEncryptedAuth = authEncryptedClaims.TryGetValue(claim, out var authEncryptedValue);
             var hasAuth = authClaims.TryGetValue(claim, out var authValue);
             var normalizedCookie = hasCookie ? cookieValue! : "(missing)";
+            var normalizedEncryptedAuth = hasEncryptedAuth ? authEncryptedValue! : "-";
             var normalizedAuth = hasAuth ? authValue! : "(missing)";
 
             var status = !hasCookie || !hasAuth
@@ -939,6 +943,7 @@ public sealed class DecryptService(
             {
                 Claim = claim,
                 CookieValue = normalizedCookie,
+                AuthEncryptedValue = normalizedEncryptedAuth,
                 AuthValue = normalizedAuth,
                 Status = status
             });
