@@ -75,17 +75,22 @@ Or after publishing, run `Tok.UI.exe`.
 
 The `Analyze Input` box can now recognize and route several common inputs automatically:
 
-- JWT -> opens `Inspect JWT` and immediately evaluates it
+- JWT -> opens `JWT` and immediately evaluates it
 - Encrypted cookie -> opens `Cookie`
-- Raw encrypted payload -> opens `Payload` and immediately decrypts it when an encryption key is available
-- Request headers copied from browser DevTools -> opens `Compare` and immediately runs the comparison when both `Authorization: Bearer ...` and `encinfo=...` are present
-- `Copy as cURL` output -> opens `Compare` and immediately runs the comparison when both values are present
-- `Copy as fetch` output -> opens `Compare` and immediately runs the comparison when both values are present
+- Raw encrypted payload -> opens `Decrypt ENC` and immediately decrypts it when an encryption key is available
+- Request headers copied from browser DevTools -> opens `JWT`, extracts the bearer token, and also stages any `encinfo=...` cookie for `Cookie vs JWT`
+- `Copy as cURL` output -> opens `JWT`, extracts the bearer token, and stages compare inputs when present
+- `Copy as fetch` output -> opens `JWT`, extracts the bearer token, and stages compare inputs when present
+- HAR file -> opens `Cookie vs JWT`, decrypts the cookie, extracts the auth JWT, and runs the comparison automatically
 
 Notes:
 
-- The Cookie and Compare tabs let you leave the fingerprint blank and use `TOK_COOKIE_FINGERPRINT` instead.
-- The Payload tab lets you leave the encryption key blank and use `TOK_ENCRYPTION_KEY` instead.
+- The main tabs are `Cookie`, `JWT`, `Cookie vs JWT`, `Decrypt ENC`, `Verify JWT`, and `Raw Input`.
+- The `Cookie` and `Cookie vs JWT` tabs let you leave the fingerprint blank and use `TOK_COOKIE_FINGERPRINT` instead.
+- The `Decrypt ENC` tab lets you leave the encryption key blank and use `TOK_ENCRYPTION_KEY` instead.
+- In `Cookie vs JWT`, the HAR path loads automatically after you browse to or paste a valid `.har` file path.
+- Successful `Cookie` decrypts and `JWT` inspections auto-fill the matching field in `Cookie vs JWT`, but manual compare edits are preserved.
+- A loaded HAR owns both compare inputs until the HAR path is cleared, so the individual tabs do not overwrite HAR-derived values.
 - The app starts with an empty Cookie tab instead of restoring the previous cookie and output, to avoid confusing first-time users.
 
 ## Commands

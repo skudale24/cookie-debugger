@@ -17,6 +17,12 @@ public partial class JsonViewer : UserControl
     public static readonly DependencyProperty ExpirationInfoProperty =
         DependencyProperty.Register(nameof(ExpirationInfo), typeof(ExpirationToolTipInfo), typeof(JsonViewer), new PropertyMetadata(null, OnJsonTextChanged));
 
+    public static readonly DependencyProperty ViewerFontFamilyProperty =
+        DependencyProperty.Register(nameof(ViewerFontFamily), typeof(FontFamily), typeof(JsonViewer), new PropertyMetadata(new FontFamily("Consolas"), OnViewerAppearanceChanged));
+
+    public static readonly DependencyProperty ViewerFontSizeProperty =
+        DependencyProperty.Register(nameof(ViewerFontSize), typeof(double), typeof(JsonViewer), new PropertyMetadata(14d, OnViewerAppearanceChanged));
+
     private static readonly Brush KeyBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
     private static readonly Brush StringBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#15803D"));
     private static readonly Brush NumberBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED"));
@@ -57,9 +63,26 @@ public partial class JsonViewer : UserControl
         set => SetValue(ExpirationInfoProperty, value);
     }
 
+    public FontFamily ViewerFontFamily
+    {
+        get => (FontFamily)GetValue(ViewerFontFamilyProperty);
+        set => SetValue(ViewerFontFamilyProperty, value);
+    }
+
+    public double ViewerFontSize
+    {
+        get => (double)GetValue(ViewerFontSizeProperty);
+        set => SetValue(ViewerFontSizeProperty, value);
+    }
+
     private static void OnJsonTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         ((JsonViewer)d).Render();
+    }
+
+    private static void OnViewerAppearanceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        ((JsonViewer)d).UpdateViewerAppearance();
     }
 
     private void Render()
@@ -69,6 +92,7 @@ public partial class JsonViewer : UserControl
             return;
         }
 
+        UpdateViewerAppearance();
         UpdateDocumentLayout();
         Viewer.Document.Blocks.Clear();
         var paragraph = new Paragraph { Margin = new Thickness(0) };
@@ -98,6 +122,12 @@ public partial class JsonViewer : UserControl
         Viewer.Document.PagePadding = new Thickness(8);
         Viewer.Document.LineHeight = 22;
         Viewer.Document.PageWidth = Math.Max(0, ActualWidth - 32);
+    }
+
+    private void UpdateViewerAppearance()
+    {
+        Viewer.FontFamily = ViewerFontFamily;
+        Viewer.FontSize = ViewerFontSize;
     }
 
     private void WriteElement(InlineCollection inlines, JsonElement element, int indent)

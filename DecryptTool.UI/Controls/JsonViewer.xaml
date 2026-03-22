@@ -12,8 +12,6 @@
                      IsDocumentEnabled="True"
                      BorderThickness="0"
                      Background="Transparent"
-                     FontFamily="Consolas"
-                     FontSize="14"
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Disabled" />
     </Border>

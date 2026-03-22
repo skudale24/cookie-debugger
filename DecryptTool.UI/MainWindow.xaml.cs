@@ -75,12 +75,7 @@ public partial class MainWindow : Window
         await _viewModel.CompareTokensAsync();
     }
 
-    private async void LoadHarButton_Click(object sender, RoutedEventArgs e)
-    {
-        await _viewModel.LoadHarAsync();
-    }
-
-    private void BrowseHarFromCompareButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseHarFromCompareButton_Click(object sender, RoutedEventArgs e)
     {
         var path = PickHarFile();
         if (string.IsNullOrWhiteSpace(path))
@@ -89,6 +84,7 @@ public partial class MainWindow : Window
         }
 
         _viewModel.CompareHarFilePath = path;
+        await _viewModel.TryAutoLoadHarAsync();
     }
 
     private void SendCookieToCompareButton_Click(object sender, RoutedEventArgs e)

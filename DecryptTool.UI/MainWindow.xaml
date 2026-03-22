@@ -464,7 +464,7 @@
                                         Style="{StaticResource SecondaryButton}"
                                         IsEnabled="{Binding CanSendCookieToCompare}"
                                         Click="SendCookieToCompareButton_Click"
-                                        Content="Compare with Auth Token" />
+                                        Content="Send to Cookie vs JWT" />
                             </Grid>
 
                             <Grid Grid.Row="4"
@@ -526,7 +526,7 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <TabItem Header="Inspect JWT">
+                <TabItem Header="JWT">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <Grid Margin="20">
                             <Grid.RowDefinitions>
@@ -546,7 +546,7 @@
 
                                 <StackPanel Grid.Column="0">
                                     <controls:FloatingLabelTextBox Height="110"
-                                                                   Label="Token Input"
+                                                                   Label="JWT"
                                                                    AcceptsReturn="True"
                                                                    TextWrapping="Wrap"
                                                                    VerticalScrollBarVisibility="Auto"
@@ -569,7 +569,7 @@
                                             <Border.ToolTip>
                                                 <ToolTip Style="{StaticResource GuidanceToolTip}">
                                                     <TextBlock TextWrapping="Wrap">
-                                                        <Run FontWeight="SemiBold" Text="Inspect tip:" />
+                                                        <Run FontWeight="SemiBold" Text="JWT tip:" />
                                                         <Run Text=" paste the full fetch/cURL request or an Authorization header and Tok will pull the bearer token into this tab for you." />
                                                     </TextBlock>
                                                 </ToolTip>
@@ -601,7 +601,7 @@
                                         Style="{StaticResource SecondaryButton}"
                                         IsEnabled="{Binding CanSendInspectToCompare}"
                                         Click="SendInspectToCompareButton_Click"
-                                        Content="Send to Compare" />
+                                        Content="Send to Cookie vs JWT" />
 
                                 <Border Grid.Column="5"
                                         Style="{StaticResource StatusPill}"
@@ -628,7 +628,7 @@
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2">
-                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Claim View" />
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="JWT Claims" />
                                     <DataGrid Margin="0,10,0,0"
                                               MinHeight="320"
                                               AutoGenerateColumns="False"
@@ -638,7 +638,7 @@
                                                                 Binding="{Binding Claim}"
                                                                 Width="0.72*"
                                                                 ElementStyle="{StaticResource CompareGridText}" />
-                                            <DataGridTemplateColumn Header="Auth Clear"
+                                            <DataGridTemplateColumn Header="JWT Clear"
                                                                     Width="1.18*">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
@@ -647,7 +647,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="Auth Encrypted"
+                                            <DataGridTemplateColumn Header="JWT Encrypted"
                                                                     Width="1.18*">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
@@ -664,97 +664,7 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <TabItem Header="Payload">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <Grid Margin="20">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="18" />
-                                <ColumnDefinition Width="1*" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Row="0" Grid.Column="0">
-                                <controls:FloatingLabelTextBox Height="160"
-                                                               Label="Encrypted Payload"
-                                                               AcceptsReturn="True"
-                                                               TextWrapping="Wrap"
-                                                               VerticalScrollBarVisibility="Auto"
-                                                               Text="{Binding PayloadInput, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="0" Grid.Column="2">
-                                <controls:FloatingLabelTextBox Height="64"
-                                                               Label="Encryption Key"
-                                                               Text="{Binding PayloadEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
-                                <StackPanel Margin="2,8,0,0"
-                                            Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource BodyText}"
-                                               FontSize="13"
-                                               Foreground="#64748B"
-                                               VerticalAlignment="Center"
-                                               Text="{Binding PayloadKeySource}" />
-                                    <Border Style="{StaticResource InfoBadge}"
-                                            Margin="8,0,0,0">
-                                        <Border.ToolTip>
-                                            <ToolTip Style="{StaticResource GuidanceToolTip}">
-                                                <TextBlock TextWrapping="Wrap">
-                                                    <Run FontWeight="SemiBold" Text="Payload shortcut:" />
-                                                    <Run Text=" paste the full URL containing " />
-                                                    <Run FontWeight="SemiBold" Text="ENC" />
-                                                    <Run Text=" into Analyze Input instead of manually extracting the encrypted value. Leave Encryption Key blank to use " />
-                                                    <Run FontWeight="SemiBold" Text="TOK_ENCRYPTION_KEY" />
-                                                    <Run Text="." />
-                                                </TextBlock>
-                                            </ToolTip>
-                                        </Border.ToolTip>
-                                        <TextBlock Style="{StaticResource InfoBadgeText}" />
-                                    </Border>
-                                </StackPanel>
-                                <Button Margin="0,18,0,0"
-                                        Style="{StaticResource PrimaryButton}"
-                                        IsEnabled="{Binding CanDecryptPayload}"
-                                        Click="PayloadDecryptButton_Click"
-                                        Content="{Binding PayloadActionText}" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Style="{StaticResource SectionTitle}" Text="Decrypted Payload" />
-                                <controls:JsonViewer Margin="0,10,0,0"
-                                                     MinHeight="360"
-                                                     JsonText="{Binding PayloadOutput, Mode=OneWay}" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="6"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="3"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Left">
-                                <Button MinWidth="150"
-                                        Margin="0,0,12,0"
-                                        Style="{StaticResource SecondaryButton}"
-                                        IsEnabled="{Binding CanCopyPayload}"
-                                        Click="CopyPayloadButton_Click"
-                                        Content="Copy Result" />
-                                <Button MinWidth="140"
-                                        Style="{StaticResource SubtleButton}"
-                                        IsEnabled="{Binding CanClearPayload}"
-                                        Click="ClearPayloadButton_Click"
-                                        Content="Clear Input" />
-                            </StackPanel>
-                        </Grid>
-                    </ScrollViewer>
-                </TabItem>
-
-                <TabItem Header="Compare">
+                <TabItem Header="Cookie vs JWT">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <Grid Margin="20">
                             <Grid.RowDefinitions>
@@ -783,9 +693,25 @@
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2">
-                                <controls:FloatingLabelTextBox Height="64"
-                                                               Label="HAR File Path"
-                                                               Text="{Binding CompareHarFilePath, UpdateSourceTrigger=PropertyChanged}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <controls:FloatingLabelTextBox Grid.Column="0"
+                                                                   Height="64"
+                                                                   Label="HAR File Path"
+                                                                   Text="{Binding CompareHarFilePath, UpdateSourceTrigger=PropertyChanged}" />
+                                    <Button Grid.Column="2"
+                                            MinWidth="132"
+                                            Margin="0,22,0,0"
+                                            VerticalAlignment="Top"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="BrowseHarFromCompareButton_Click"
+                                            Content="Browse HAR" />
+                                </Grid>
                                 <controls:FloatingLabelTextBox Height="64"
                                                                Label="HAR Encryption Key"
                                                                Text="{Binding CompareHarEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
@@ -809,19 +735,6 @@
                                         <TextBlock Style="{StaticResource InfoBadgeText}" />
                                     </Border>
                                 </StackPanel>
-                                <StackPanel Margin="0,18,0,0"
-                                            Orientation="Horizontal">
-                                    <Button MinWidth="132"
-                                            Margin="0,0,12,0"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Click="BrowseHarFromCompareButton_Click"
-                                            Content="Browse HAR" />
-                                    <Button MinWidth="132"
-                                            Style="{StaticResource PrimaryButton}"
-                                            IsEnabled="{Binding CanLoadHar}"
-                                            Click="LoadHarButton_Click"
-                                            Content="Load HAR" />
-                                </StackPanel>
                                 <TextBlock Margin="2,10,0,0"
                                            Style="{StaticResource BodyText}"
                                            FontSize="13"
@@ -838,7 +751,7 @@
                                                                Text="{Binding CompareCookieJwt, UpdateSourceTrigger=PropertyChanged}" />
 
                                 <controls:FloatingLabelTextBox Height="110"
-                                                               Label="Auth JWT"
+                                                               Label="JWT"
                                                                AcceptsReturn="True"
                                                                TextWrapping="Wrap"
                                                                VerticalScrollBarVisibility="Auto"
@@ -891,7 +804,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Auth Clear"
+                                        <DataGridTemplateColumn Header="JWT Clear"
                                                                 Width="1.18*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -900,7 +813,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Auth Raw"
+                                        <DataGridTemplateColumn Header="JWT Raw"
                                                                 Width="1.18*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -960,7 +873,7 @@
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="0" Grid.Column="2">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Auth JWT Payload (Encrypted)" />
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="JWT Payload (Encrypted)" />
                                         <controls:JsonViewer Margin="0,10,0,0"
                                                              MinHeight="220"
                                                              ExpirationInfo="{Binding CompareAuthExpirationInfo, Mode=OneWay}"
@@ -996,7 +909,99 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <TabItem Header="Validate">
+                <TabItem Header="Decrypt ENC">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0">
+                                <controls:FloatingLabelTextBox Height="160"
+                                                               Label="ENC Value"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               Text="{Binding PayloadInput, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                <controls:FloatingLabelTextBox Height="64"
+                                                               Label="Encryption Key"
+                                                               Text="{Binding PayloadEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Margin="2,8,0,0"
+                                            Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource BodyText}"
+                                               FontSize="13"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding PayloadKeySource}" />
+                                    <Border Style="{StaticResource InfoBadge}"
+                                            Margin="8,0,0,0">
+                                        <Border.ToolTip>
+                                            <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                                <TextBlock TextWrapping="Wrap">
+                                                    <Run FontWeight="SemiBold" Text="ENC shortcut:" />
+                                                    <Run Text=" paste the full URL containing " />
+                                                    <Run FontWeight="SemiBold" Text="ENC" />
+                                                    <Run Text=" into Analyze Input instead of manually extracting the ENC value. Leave Encryption Key blank to use " />
+                                                    <Run FontWeight="SemiBold" Text="TOK_ENCRYPTION_KEY" />
+                                                    <Run Text="." />
+                                                </TextBlock>
+                                            </ToolTip>
+                                        </Border.ToolTip>
+                                        <TextBlock Style="{StaticResource InfoBadgeText}" />
+                                    </Border>
+                                </StackPanel>
+                                <Button Margin="0,18,0,0"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="{Binding CanDecryptPayload}"
+                                        Click="PayloadDecryptButton_Click"
+                                        Content="{Binding PayloadActionText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Decrypted ENC" />
+                                <controls:JsonViewer Margin="0,10,0,0"
+                                                     MinHeight="360"
+                                                     ViewerFontFamily="Segoe UI"
+                                                     ViewerFontSize="14"
+                                                     JsonText="{Binding PayloadOutput, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="6"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="3"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Left">
+                                <Button MinWidth="150"
+                                        Margin="0,0,12,0"
+                                        Style="{StaticResource SecondaryButton}"
+                                        IsEnabled="{Binding CanCopyPayload}"
+                                        Click="CopyPayloadButton_Click"
+                                        Content="Copy Result" />
+                                <Button MinWidth="140"
+                                        Style="{StaticResource SubtleButton}"
+                                        IsEnabled="{Binding CanClearPayload}"
+                                        Click="ClearPayloadButton_Click"
+                                        Content="Clear Input" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Verify JWT">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <Grid Margin="20">
                             <Grid.RowDefinitions>
@@ -1014,7 +1019,7 @@
 
                             <StackPanel Grid.Column="0">
                                 <controls:FloatingLabelTextBox Height="130"
-                                                               Label="Token Input"
+                                                               Label="JWT"
                                                                AcceptsReturn="True"
                                                                TextWrapping="Wrap"
                                                                VerticalScrollBarVisibility="Auto"
@@ -1043,7 +1048,7 @@
                                         <Border.ToolTip>
                                             <ToolTip Style="{StaticResource GuidanceToolTip}">
                                                 <TextBlock TextWrapping="Wrap">
-                                                    <Run FontWeight="SemiBold" Text="Validation note:" />
+                                                    <Run FontWeight="SemiBold" Text="Verification note:" />
                                                     <Run Text=" the signing key is always entered manually on this tab. Unlike cookie fingerprints and payload keys, there is no env-var fallback here." />
                                                 </TextBlock>
                                             </ToolTip>
@@ -1068,7 +1073,7 @@
                             </Grid>
 
                             <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Style="{StaticResource SectionTitle}" Text="Validation Result" />
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Verification Result" />
                                 <TextBox Margin="0,10,0,0"
                                          MinHeight="340"
                                          Style="{StaticResource CodeBox}"

@@ -17,8 +17,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private const int CookieTabIndex = 0;
     private const int InspectTabIndex = 1;
-    private const int PayloadTabIndex = 2;
-    private const int CompareTabIndex = 3;
+    private const int CompareTabIndex = 2;
+    private const int PayloadTabIndex = 3;
     private const int ValidateTabIndex = 4;
     private const int RawInputTabIndex = 5;
     private const string DefaultJwtInspectHeader = "{}";
@@ -27,7 +27,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private const string DefaultJwtValidateSummary = "Validation has not been run yet.";
     private const string DefaultComparePayloadJson = "{}";
     private const string DefaultJwtInspectContext = "Paste a JWT, Authorization header, fetch/cURL request, or use Analyze Input.";
-    private const string DefaultHarSummary = "Load a HAR file to extract the auth token, decrypt the cookie, and compare claims.";
+    private const string DefaultHarSummary = "Select or paste a HAR file path to extract the auth token, decrypt the cookie, and compare claims automatically.";
     private const string DefaultRawInputSummary = "Unclassified input is shown here so you can inspect or copy it manually.";
     private const int LargePayloadHintLength = 16_000;
     private static readonly Brush SuccessBrush = CreateBrush("#2F7D32");
@@ -88,6 +88,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _compareHarEncryptionKey = string.Empty;
     private string _compareHarKeySource = $"Leave blank to use {EncryptionEnvVar}.";
     private string _compareHarSummary = DefaultHarSummary;
+    private string _lastAutoLoadedHarPath = string.Empty;
+    private CompareInputSource _compareCookieSource = CompareInputSource.None;
+    private CompareInputSource _compareAuthSource = CompareInputSource.None;
+    private bool _suppressCompareCookieManualTracking;
+    private bool _suppressCompareAuthManualTracking;
     private bool _showDifferencesOnly;
     private IReadOnlyList<CompareClaimRowViewModel> _allCompareRows = Array.Empty<CompareClaimRowViewModel>();
     private IReadOnlyList<CompareClaimRowViewModel> _compareRows = Array.Empty<CompareClaimRowViewModel>();
@@ -150,25 +155,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         : (!string.Equals(JwtInspectHeader, DefaultJwtInspectHeader, StringComparison.Ordinal) ||
            !string.Equals(JwtInspectPayload, DefaultJwtInspectPayload, StringComparison.Ordinal))
             ? "Refresh"
-            : "Show Token Details";
+            : "Show JWT Details";
 
     public string PayloadActionText => _currentAction == WorkflowAction.Payload && IsBusy
         ? "Decoding..."
         : !string.IsNullOrWhiteSpace(PayloadOutput)
             ? "Refresh Result"
-            : "Decode Payload";
+            : "Decrypt ENC";
 
     public string CompareActionText => _currentAction == WorkflowAction.Compare && IsBusy
         ? "Comparing..."
         : CompareRows.Count > 0
             ? "Refresh Comparison"
-            : "Compare Tokens";
+            : "Compare Claims";
 
     public string ValidateActionText => _currentAction == WorkflowAction.Validate && IsBusy
         ? "Checking..."
         : !string.Equals(JwtValidateSummary, DefaultJwtValidateSummary, StringComparison.Ordinal)
-            ? "Refresh Status"
-            : "Check Token Status";
+            ? "Verify Again"
+            : "Verify JWT";
 
     public string AutoDetectInput
     {
@@ -212,7 +217,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public AppEnvironment SelectedEnvironment
     {
         get => _selectedEnvironment;
-        set => SetField(ref _selectedEnvironment, value);
+        set
+        {
+            if (SetField(ref _selectedEnvironment, value))
+            {
+                _lastAutoLoadedHarPath = string.Empty;
+                TriggerHarAutoLoadIfReady();
+            }
+        }
     }
 
     public string CookieOutput
@@ -428,6 +440,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _compareCookieJwt, value))
             {
+                if (!_suppressCompareCookieManualTracking)
+                {
+                    _compareCookieSource = string.IsNullOrWhiteSpace(value)
+                        ? CompareInputSource.None
+                        : CompareInputSource.Manual;
+                }
+
                 RaiseCommandState();
             }
         }
@@ -440,6 +459,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _compareAuthJwt, value))
             {
+                if (!_suppressCompareAuthManualTracking)
+                {
+                    _compareAuthSource = string.IsNullOrWhiteSpace(value)
+                        ? CompareInputSource.None
+                        : CompareInputSource.Manual;
+                }
+
                 RaiseCommandState();
             }
         }
@@ -589,12 +615,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             JwtInspectContext = BuildRequestContext(input, compareCookie, compareAuthJwt);
             if (!string.IsNullOrWhiteSpace(compareCookie))
             {
-                CompareCookieJwt = compareCookie;
+                SyncCompareCookieJwt(compareCookie, CompareInputSource.CookieTab);
             }
 
             if (!string.IsNullOrWhiteSpace(compareAuthJwt))
             {
-                CompareAuthJwt = compareAuthJwt;
+                SyncCompareAuthJwt(compareAuthJwt, CompareInputSource.JwtTab);
             }
 
             if (!string.IsNullOrWhiteSpace(compareAuthJwt))
@@ -615,7 +641,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             SelectedTabIndex = InspectTabIndex;
             JwtInspectInput = input;
             JwtInspectContext = DefaultJwtInspectContext;
-            SetStatus(NeutralBrush, "JWT detected. Opened the View Token tab.");
+            SetStatus(NeutralBrush, "JWT detected. Opened the JWT tab.");
             await InspectJwtAsync();
             return;
         }
@@ -624,7 +650,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = CookieTabIndex;
             CookieInput = input;
-            SetStatus(NeutralBrush, "Cookie-like input detected. Opened the Decode Cookie tab and started decryption.");
+            SetStatus(NeutralBrush, "Cookie-like input detected. Opened the Cookie tab and started decryption.");
             await DecryptCookieAsync();
             return;
         }
@@ -633,7 +659,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = PayloadTabIndex;
             PayloadInput = payloadFromUrl;
-            SetStatus(NeutralBrush, "URL with ENC detected. Opened the Decode Payload tab and started decryption.");
+            SetStatus(NeutralBrush, "URL with ENC detected. Opened the Decrypt ENC tab and started decryption.");
             await DecryptPayloadAsync();
             return;
         }
@@ -643,7 +669,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = PayloadTabIndex;
             PayloadInput = input;
-            SetStatus(NeutralBrush, "Encrypted payload detected. Opened the Decode Payload tab and started decryption.");
+            SetStatus(NeutralBrush, "Encrypted payload detected. Opened the Decrypt ENC tab and started decryption.");
             await DecryptPayloadAsync();
             return;
         }
@@ -672,6 +698,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             CookieHeaderJson = PrettyJsonOrRaw(jwt.HeaderJson);
             CookieClaimRows = BuildCookieClaimRows(jwt);
             CookieExpirationInfo = BuildExpirationToolTipInfo(jwt.Report, "Cookie JWT exp");
+            SyncCompareCookieJwt(result.DecryptedJwt, CompareInputSource.CookieTab);
             await SaveSharedStateAsync(result.DecryptedJwt);
             RaiseCommandState();
             SetStatus(result.Report.IsExpired ? WarningBrush : SuccessBrush,
@@ -714,6 +741,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             }
 
             JwtInspectClaimRows = BuildInspectClaimRows(result.Claims, JwtInspectDecryptedPayload);
+            SyncCompareAuthJwt(result.Jwt, CompareInputSource.JwtTab);
 
             if (result.Report.IsExpired)
             {
@@ -788,7 +816,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         if (!CanDecryptPayload)
         {
-            SetStatus(ErrorBrush, "❌ Payload input is required, plus an encryption key or TOK_ENCRYPTION_KEY.");
+            SetStatus(ErrorBrush, "❌ An ENC value is required, plus an encryption key or TOK_ENCRYPTION_KEY.");
             return;
         }
 
@@ -817,8 +845,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             CompareHarFilePath = harResult.HarFilePath;
             CompareHarSummary = $"HAR loaded. Fingerprint resolved to {harResult.CookieDebug.Fingerprint}.";
-            CompareCookieJwt = harResult.CookieDebug.DecryptedJwt;
-            CompareAuthJwt = harResult.AuthorizationJwt;
+            SetCompareCookieJwt(harResult.CookieDebug.DecryptedJwt, CompareInputSource.Har);
+            SetCompareAuthJwt(harResult.AuthorizationJwt, CompareInputSource.Har);
             Fingerprint = harResult.CookieDebug.Fingerprint;
             _lastCookieJwt = harResult.CookieDebug.DecryptedJwt;
             var cookieInspectResult = _decryptService.InspectRawJwt(harResult.CookieDebug.DecryptedJwt);
@@ -865,9 +893,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        CompareCookieJwt = _lastCookieJwt;
-        SelectedTabIndex = 3;
-        SetStatus(NeutralBrush, "Cookie JWT sent to the Compare Tokens tab.");
+        SetCompareCookieJwt(_lastCookieJwt, CompareInputSource.CookieTab);
+        SelectedTabIndex = CompareTabIndex;
+        SetStatus(NeutralBrush, "Cookie JWT sent to the Cookie vs JWT tab.");
     }
 
     public void SendInspectToCompare()
@@ -877,9 +905,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        CompareAuthJwt = DecryptService.NormalizeJwtInput(JwtInspectInput);
-        SelectedTabIndex = 3;
-        SetStatus(NeutralBrush, "JWT sent to the Compare Tokens tab.");
+        SetCompareAuthJwt(DecryptService.NormalizeJwtInput(JwtInspectInput), CompareInputSource.JwtTab);
+        SelectedTabIndex = CompareTabIndex;
+        SetStatus(NeutralBrush, "JWT sent to the Cookie vs JWT tab.");
     }
 
     public void ClearPayload()
@@ -890,7 +918,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         PayloadKeySource = HasEnvironmentEncryptionKey()
             ? $"Using {EncryptionEnvVar} from your environment."
             : $"Leave blank to use {EncryptionEnvVar}.";
-        SetStatus(NeutralBrush, "Payload tab cleared.");
+        SetStatus(NeutralBrush, "Decrypt ENC tab cleared.");
     }
 
     public string BuildCompareDiffReport()
@@ -1361,7 +1389,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _compareHarFilePath, value))
             {
+                var normalizedPath = DecryptService.NormalizeDroppedPath(value);
+                if (string.IsNullOrWhiteSpace(normalizedPath))
+                {
+                    ReleaseHarOwnership();
+                }
+
+                if (!string.Equals(normalizedPath, _lastAutoLoadedHarPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    CompareHarSummary = DefaultHarSummary;
+                }
+
                 RaiseCommandState();
+                TriggerHarAutoLoadIfReady();
             }
         }
     }
@@ -1376,7 +1416,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 CompareHarKeySource = string.IsNullOrWhiteSpace(value)
                     ? (HasEnvironmentEncryptionKey() ? $"Using {EncryptionEnvVar} from your environment." : $"Leave blank to use {EncryptionEnvVar}.")
                     : "Using the key entered above.";
+                _lastAutoLoadedHarPath = string.Empty;
                 RaiseCommandState();
+                TriggerHarAutoLoadIfReady();
             }
         }
     }
@@ -1392,6 +1434,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         get => _compareHarSummary;
         private set => SetField(ref _compareHarSummary, value);
     }
+
+    public Task TryAutoLoadHarAsync() => AutoLoadHarIfReadyAsync();
 
     private static bool LooksLikeFetchRequest(string input)
     {
@@ -1545,6 +1589,109 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                (value.StartsWith("[", StringComparison.Ordinal) && value.EndsWith("]", StringComparison.Ordinal));
     }
 
+    private void SyncCompareCookieJwt(string value, CompareInputSource source)
+    {
+        if (CanSyncCompareValue(_compareCookieSource, source))
+        {
+            SetCompareCookieJwt(value, source);
+        }
+    }
+
+    private void SyncCompareAuthJwt(string value, CompareInputSource source)
+    {
+        if (CanSyncCompareValue(_compareAuthSource, source))
+        {
+            SetCompareAuthJwt(value, source);
+        }
+    }
+
+    private bool CanSyncCompareValue(CompareInputSource currentSource, CompareInputSource incomingSource)
+    {
+        if (HasHarOwnership() && incomingSource != CompareInputSource.Har)
+        {
+            return false;
+        }
+
+        return currentSource == CompareInputSource.None || currentSource == incomingSource;
+    }
+
+    private bool HasHarOwnership()
+    {
+        return !string.IsNullOrWhiteSpace(CompareHarFilePath) ||
+               _compareCookieSource == CompareInputSource.Har ||
+               _compareAuthSource == CompareInputSource.Har;
+    }
+
+    private void ReleaseHarOwnership()
+    {
+        if (_compareCookieSource == CompareInputSource.Har)
+        {
+            _compareCookieSource = string.IsNullOrWhiteSpace(CompareCookieJwt)
+                ? CompareInputSource.None
+                : CompareInputSource.Manual;
+        }
+
+        if (_compareAuthSource == CompareInputSource.Har)
+        {
+            _compareAuthSource = string.IsNullOrWhiteSpace(CompareAuthJwt)
+                ? CompareInputSource.None
+                : CompareInputSource.Manual;
+        }
+    }
+
+    private void SetCompareCookieJwt(string value, CompareInputSource source)
+    {
+        _suppressCompareCookieManualTracking = true;
+        try
+        {
+            CompareCookieJwt = value;
+            _compareCookieSource = string.IsNullOrWhiteSpace(value)
+                ? CompareInputSource.None
+                : source;
+        }
+        finally
+        {
+            _suppressCompareCookieManualTracking = false;
+        }
+    }
+
+    private void SetCompareAuthJwt(string value, CompareInputSource source)
+    {
+        _suppressCompareAuthManualTracking = true;
+        try
+        {
+            CompareAuthJwt = value;
+            _compareAuthSource = string.IsNullOrWhiteSpace(value)
+                ? CompareInputSource.None
+                : source;
+        }
+        finally
+        {
+            _suppressCompareAuthManualTracking = false;
+        }
+    }
+
+    private void TriggerHarAutoLoadIfReady()
+    {
+        _ = AutoLoadHarIfReadyAsync();
+    }
+
+    private async Task AutoLoadHarIfReadyAsync()
+    {
+        var normalizedPath = DecryptService.NormalizeDroppedPath(CompareHarFilePath);
+        if (string.IsNullOrWhiteSpace(normalizedPath) ||
+            !IsHarInput(normalizedPath) ||
+            IsBusy ||
+            !CanLoadHar ||
+            string.Equals(_lastAutoLoadedHarPath, normalizedPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _lastAutoLoadedHarPath = normalizedPath;
+        await LoadHarAsync();
+    }
+
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -1604,6 +1751,15 @@ internal enum WorkflowAction
     Payload,
     Compare,
     Validate
+}
+
+internal enum CompareInputSource
+{
+    None,
+    Manual,
+    CookieTab,
+    JwtTab,
+    Har
 }
 
 public sealed class CompareClaimRowViewModel
