@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using DecryptTool.UI.Models;
 
 namespace DecryptTool.UI.Controls;
 
@@ -13,6 +14,9 @@ public partial class JsonViewer : UserControl
     public static readonly DependencyProperty JsonTextProperty =
         DependencyProperty.Register(nameof(JsonText), typeof(string), typeof(JsonViewer), new PropertyMetadata(string.Empty, OnJsonTextChanged));
 
+    public static readonly DependencyProperty ExpirationInfoProperty =
+        DependencyProperty.Register(nameof(ExpirationInfo), typeof(ExpirationToolTipInfo), typeof(JsonViewer), new PropertyMetadata(null, OnJsonTextChanged));
+
     private static readonly Brush KeyBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
     private static readonly Brush StringBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#15803D"));
     private static readonly Brush NumberBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED"));
@@ -20,6 +24,7 @@ public partial class JsonViewer : UserControl
     private static readonly Brush NullBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280"));
     private static readonly Brush PunctuationBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151"));
     private static readonly Brush DefaultBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#111827"));
+    private static readonly Brush ExpirationBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1D4ED8"));
 
     static JsonViewer()
     {
@@ -30,6 +35,7 @@ public partial class JsonViewer : UserControl
         NullBrush.Freeze();
         PunctuationBrush.Freeze();
         DefaultBrush.Freeze();
+        ExpirationBrush.Freeze();
     }
 
     public JsonViewer()
@@ -43,6 +49,12 @@ public partial class JsonViewer : UserControl
     {
         get => (string)GetValue(JsonTextProperty);
         set => SetValue(JsonTextProperty, value);
+    }
+
+    public ExpirationToolTipInfo? ExpirationInfo
+    {
+        get => (ExpirationToolTipInfo?)GetValue(ExpirationInfoProperty);
+        set => SetValue(ExpirationInfoProperty, value);
     }
 
     private static void OnJsonTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -88,7 +100,7 @@ public partial class JsonViewer : UserControl
         Viewer.Document.PageWidth = Math.Max(0, ActualWidth - 32);
     }
 
-    private static void WriteElement(InlineCollection inlines, JsonElement element, int indent)
+    private void WriteElement(InlineCollection inlines, JsonElement element, int indent)
     {
         switch (element.ValueKind)
         {
@@ -117,7 +129,7 @@ public partial class JsonViewer : UserControl
         }
     }
 
-    private static void WriteObject(InlineCollection inlines, JsonElement element, int indent)
+    private void WriteObject(InlineCollection inlines, JsonElement element, int indent)
     {
         inlines.Add(new Run("{") { Foreground = PunctuationBrush });
         var properties = element.EnumerateObject().ToList();
@@ -130,9 +142,16 @@ public partial class JsonViewer : UserControl
         {
             AddIndent(inlines, indent + 1);
             var property = properties[i];
-            inlines.Add(new Run($"\"{property.Name}\"") { Foreground = KeyBrush });
-            inlines.Add(new Run(": ") { Foreground = PunctuationBrush });
-            WriteElement(inlines, property.Value, indent + 1);
+            if (property.Name.Equals("exp", StringComparison.OrdinalIgnoreCase) && ExpirationInfo is not null)
+            {
+                inlines.Add(new InlineUIContainer(CreateExpirationInline(property)));
+            }
+            else
+            {
+                inlines.Add(new Run($"\"{property.Name}\"") { Foreground = KeyBrush });
+                inlines.Add(new Run(": ") { Foreground = PunctuationBrush });
+                WriteElement(inlines, property.Value, indent + 1);
+            }
 
             if (i < properties.Count - 1)
             {
@@ -150,7 +169,7 @@ public partial class JsonViewer : UserControl
         inlines.Add(new Run("}") { Foreground = PunctuationBrush });
     }
 
-    private static void WriteArray(InlineCollection inlines, JsonElement element, int indent)
+    private void WriteArray(InlineCollection inlines, JsonElement element, int indent)
     {
         inlines.Add(new Run("[") { Foreground = PunctuationBrush });
         var items = element.EnumerateArray().ToList();
@@ -182,5 +201,42 @@ public partial class JsonViewer : UserControl
     private static void AddIndent(InlineCollection inlines, int indent)
     {
         inlines.Add(new Run(new string(' ', indent * 2)) { Foreground = DefaultBrush });
+    }
+
+    private ToolTip CreateExpirationToolTip()
+    {
+        var toolTip = new ToolTip
+        {
+            Content = ExpirationInfo
+        };
+        toolTip.SetResourceReference(StyleProperty, "GuidanceToolTip");
+        toolTip.SetResourceReference(ContentTemplateProperty, "ExpirationToolTipContentTemplate");
+        return toolTip;
+    }
+
+    private TextBlock CreateExpirationInline(JsonProperty property)
+    {
+        return new TextBlock
+        {
+            FontFamily = Viewer.FontFamily,
+            FontSize = Viewer.FontSize,
+            Foreground = ExpirationBrush,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            TextDecorations = TextDecorations.Underline,
+            Text = $"\"{property.Name}\": {GetCompactJsonValue(property.Value)}",
+            ToolTip = CreateExpirationToolTip()
+        };
+    }
+
+    private static string GetCompactJsonValue(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => $"\"{element.GetString()}\"",
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.Null => "null",
+            _ => element.ToString()
+        };
     }
 }

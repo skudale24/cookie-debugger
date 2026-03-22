@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Media;
 using CookieDebugger.Models;
 using CookieDebugger.Services;
+using DecryptTool.UI.Models;
 using CookieDebugger.State;
 
 namespace DecryptTool.UI.ViewModels;
@@ -28,6 +29,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private const string DefaultJwtInspectContext = "Paste a JWT, Authorization header, fetch/cURL request, or use Analyze Input.";
     private const string DefaultHarSummary = "Load a HAR file to extract the auth token, decrypt the cookie, and compare claims.";
     private const string DefaultRawInputSummary = "Unclassified input is shown here so you can inspect or copy it manually.";
+    private const int LargePayloadHintLength = 16_000;
     private static readonly Brush SuccessBrush = CreateBrush("#2F7D32");
     private static readonly Brush WarningBrush = CreateBrush("#C48A00");
     private static readonly Brush ErrorBrush = CreateBrush("#B23A2B");
@@ -50,18 +52,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _fingerprintSource = $"Leave blank to use {FingerprintEnvVar}.";
     private AppEnvironment _selectedEnvironment = AppEnvironment.Dev;
     private string _cookieOutput = string.Empty;
+    private string _cookieExtractedJwt = string.Empty;
+    private string _cookieHeaderJson = DefaultJwtInspectHeader;
+    private IReadOnlyList<SimpleClaimRowViewModel> _cookieClaimRows = Array.Empty<SimpleClaimRowViewModel>();
     private string _lastCookieJwt = string.Empty;
+    private ExpirationToolTipInfo? _cookieExpirationInfo;
 
     private string _jwtInspectInput = string.Empty;
     private string _jwtInspectEncryptionKey = string.Empty;
     private string _jwtInspectHeader = DefaultJwtInspectHeader;
     private string _jwtInspectPayload = DefaultJwtInspectPayload;
     private string _jwtInspectDecryptedPayload = DefaultJwtInspectDecryptedPayload;
+    private IReadOnlyList<InspectClaimRowViewModel> _jwtInspectClaimRows = Array.Empty<InspectClaimRowViewModel>();
     private string _jwtInspectContext = DefaultJwtInspectContext;
     private string _jwtInspectKeySource = $"Leave blank to use {EncryptionEnvVar}.";
     private string _jwtInspectExpiryBadgeText = "⚠ Not inspected";
     private Brush _jwtInspectExpiryBadgeBrush = WarningBrush;
-    private string _jwtInspectExpiryDetail = "No token inspected yet.";
+    private ExpirationToolTipInfo? _jwtInspectExpirationInfo;
 
     private string _jwtValidateInput = string.Empty;
     private string _jwtValidateKey = string.Empty;
@@ -86,6 +93,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private IReadOnlyList<CompareClaimRowViewModel> _compareRows = Array.Empty<CompareClaimRowViewModel>();
     private string _compareCookiePayload = DefaultComparePayloadJson;
     private string _compareAuthPayloadEncrypted = DefaultComparePayloadJson;
+    private ExpirationToolTipInfo? _compareCookieExpirationInfo;
+    private ExpirationToolTipInfo? _compareAuthExpirationInfo;
     private string _rawInput = string.Empty;
 
     public MainWindowViewModel(DecryptService decryptService, UserStateStore userStateStore)
@@ -212,6 +221,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _cookieOutput, value);
     }
 
+    public string CookieExtractedJwt
+    {
+        get => _cookieExtractedJwt;
+        private set => SetField(ref _cookieExtractedJwt, value);
+    }
+
+    public string CookieHeaderJson
+    {
+        get => _cookieHeaderJson;
+        private set => SetField(ref _cookieHeaderJson, value);
+    }
+
+    public IReadOnlyList<SimpleClaimRowViewModel> CookieClaimRows
+    {
+        get => _cookieClaimRows;
+        private set => SetField(ref _cookieClaimRows, value);
+    }
+
+    public ExpirationToolTipInfo? CookieExpirationInfo
+    {
+        get => _cookieExpirationInfo;
+        private set => SetField(ref _cookieExpirationInfo, value);
+    }
+
     public string JwtInspectInput
     {
         get => _jwtInspectInput;
@@ -256,6 +289,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _jwtInspectDecryptedPayload, value);
     }
 
+    public IReadOnlyList<InspectClaimRowViewModel> JwtInspectClaimRows
+    {
+        get => _jwtInspectClaimRows;
+        private set => SetField(ref _jwtInspectClaimRows, value);
+    }
+
     public string JwtInspectContext
     {
         get => _jwtInspectContext;
@@ -280,10 +319,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _jwtInspectExpiryBadgeBrush, value);
     }
 
-    public string JwtInspectExpiryDetail
+    public ExpirationToolTipInfo? JwtInspectExpirationInfo
     {
-        get => _jwtInspectExpiryDetail;
-        private set => SetField(ref _jwtInspectExpiryDetail, value);
+        get => _jwtInspectExpirationInfo;
+        private set => SetField(ref _jwtInspectExpirationInfo, value);
     }
 
     public string JwtValidateInput
@@ -436,6 +475,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _compareCookiePayload, value);
     }
 
+    public ExpirationToolTipInfo? CompareCookieExpirationInfo
+    {
+        get => _compareCookieExpirationInfo;
+        private set => SetField(ref _compareCookieExpirationInfo, value);
+    }
+
+    public ExpirationToolTipInfo? CompareAuthExpirationInfo
+    {
+        get => _compareAuthExpirationInfo;
+        private set => SetField(ref _compareAuthExpirationInfo, value);
+    }
+
     public string RawInput
     {
         get => _rawInput;
@@ -487,7 +538,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         SelectedEnvironment = DecryptService.ParseEnvironment(state.LastEnvironment);
         CookieInput = string.Empty;
         CookieOutput = string.Empty;
+        CookieExtractedJwt = string.Empty;
+        CookieHeaderJson = DefaultJwtInspectHeader;
+        CookieClaimRows = Array.Empty<SimpleClaimRowViewModel>();
         _lastCookieJwt = string.Empty;
+        CookieExpirationInfo = null;
+        JwtInspectExpirationInfo = null;
+        JwtInspectClaimRows = Array.Empty<InspectClaimRowViewModel>();
+        CompareCookieExpirationInfo = null;
+        CompareAuthExpirationInfo = null;
         JwtInspectContext = DefaultJwtInspectContext;
         FingerprintSource = string.IsNullOrWhiteSpace(Fingerprint)
             ? GetFingerprintEnvironmentMessage()
@@ -528,8 +587,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             SelectedTabIndex = InspectTabIndex;
             JwtInspectInput = compareAuthJwt;
             JwtInspectContext = BuildRequestContext(input, compareCookie, compareAuthJwt);
-            CompareCookieJwt = compareCookie;
-            CompareAuthJwt = compareAuthJwt;
+            if (!string.IsNullOrWhiteSpace(compareCookie))
+            {
+                CompareCookieJwt = compareCookie;
+            }
+
+            if (!string.IsNullOrWhiteSpace(compareAuthJwt))
+            {
+                CompareAuthJwt = compareAuthJwt;
+            }
 
             if (!string.IsNullOrWhiteSpace(compareAuthJwt))
             {
@@ -558,7 +624,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             SelectedTabIndex = CookieTabIndex;
             CookieInput = input;
-            SetStatus(NeutralBrush, "Cookie-like input detected. Opened the Decode Cookie tab.");
+            SetStatus(NeutralBrush, "Cookie-like input detected. Opened the Decode Cookie tab and started decryption.");
+            await DecryptCookieAsync();
             return;
         }
 
@@ -571,7 +638,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (_decryptService.LooksLikeEncryptedPayload(input))
+        var looksLikeEncryptedPayload = await Task.Run(() => _decryptService.LooksLikeEncryptedPayload(input));
+        if (looksLikeEncryptedPayload)
         {
             SelectedTabIndex = PayloadTabIndex;
             PayloadInput = input;
@@ -600,6 +668,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var jwt = _decryptService.InspectRawJwt(result.DecryptedJwt);
             _lastCookieJwt = result.DecryptedJwt;
             CookieOutput = PrettyJsonOrRaw(jwt.PayloadJson);
+            CookieExtractedJwt = result.DecryptedJwt;
+            CookieHeaderJson = PrettyJsonOrRaw(jwt.HeaderJson);
+            CookieClaimRows = BuildCookieClaimRows(jwt);
+            CookieExpirationInfo = BuildExpirationToolTipInfo(jwt.Report, "Cookie JWT exp");
             await SaveSharedStateAsync(result.DecryptedJwt);
             RaiseCommandState();
             SetStatus(result.Report.IsExpired ? WarningBrush : SuccessBrush,
@@ -620,8 +692,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var result = _decryptService.InspectRawJwt(JwtInspectInput);
             JwtInspectHeader = PrettyJsonOrRaw(result.HeaderJson);
             JwtInspectPayload = PrettyJsonOrRaw(result.PayloadJson);
-            JwtInspectExpiryDetail = $"exp: {result.Report.ExpiresReadable}";
             JwtInspectDecryptedPayload = DefaultJwtInspectDecryptedPayload;
+            JwtInspectExpirationInfo = BuildExpirationToolTipInfo(result.Report, "JWT exp");
 
             var hasEncryptedClaims = _decryptService.HasEncryptedJwtClaims(result.Jwt);
             var claimsDecrypted = false;
@@ -640,6 +712,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     JwtInspectDecryptedPayload = "Claims look encrypted. Add an encryption key or set TOK_ENCRYPTION_KEY to see decrypted values.";
                 }
             }
+
+            JwtInspectClaimRows = BuildInspectClaimRows(result.Claims, JwtInspectDecryptedPayload);
 
             if (result.Report.IsExpired)
             {
@@ -718,14 +792,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        await RunBusyAsync(WorkflowAction.Payload, () =>
+        await RunBusyAsync(WorkflowAction.Payload, async () =>
         {
             var encryptionKey = ResolvePayloadKey();
-            var result = _decryptService.DecryptPayload(PayloadInput, encryptionKey);
+            var result = await Task.Run(() => _decryptService.DecryptPayload(PayloadInput, encryptionKey));
             PayloadOutput = PrettyJsonOrRaw(result);
             SetStatus(SuccessBrush, "✔ Decrypted successfully.");
-            return Task.CompletedTask;
-        });
+        }, GetPayloadBusyStatus(PayloadInput));
     }
 
     public async Task LoadHarAsync()
@@ -748,7 +821,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             CompareAuthJwt = harResult.AuthorizationJwt;
             Fingerprint = harResult.CookieDebug.Fingerprint;
             _lastCookieJwt = harResult.CookieDebug.DecryptedJwt;
-            CookieOutput = PrettyJsonOrRaw(_decryptService.InspectRawJwt(harResult.CookieDebug.DecryptedJwt).PayloadJson);
+            var cookieInspectResult = _decryptService.InspectRawJwt(harResult.CookieDebug.DecryptedJwt);
+            CookieOutput = PrettyJsonOrRaw(cookieInspectResult.PayloadJson);
+            CookieExtractedJwt = harResult.CookieDebug.DecryptedJwt;
+            CookieHeaderJson = PrettyJsonOrRaw(cookieInspectResult.HeaderJson);
+            CookieClaimRows = BuildCookieClaimRows(cookieInspectResult);
+            CookieExpirationInfo = BuildExpirationToolTipInfo(harResult.CookieDebug.Report, "Cookie JWT exp");
+            CompareCookieExpirationInfo = BuildExpirationToolTipInfo(harResult.CookieDebug.Report, "Cookie JWT exp");
 
             if (string.IsNullOrWhiteSpace(harResult.AuthorizationJwt))
             {
@@ -756,6 +835,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 RefreshCompareRows();
                 CompareCookiePayload = PrettyJsonOrRaw(_decryptService.InspectRawJwt(harResult.CookieDebug.DecryptedJwt).PayloadJson);
                 CompareAuthPayloadEncrypted = DefaultComparePayloadJson;
+                CompareAuthExpirationInfo = null;
                 SetStatus(WarningBrush, "⚠ HAR loaded and cookie decrypted, but no Authorization JWT was found.");
                 return;
             }
@@ -839,7 +919,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         });
     }
 
-    private async Task RunBusyAsync(WorkflowAction action, Func<Task> operation)
+    private async Task RunBusyAsync(WorkflowAction action, Func<Task> operation, string? busyStatusText = null)
     {
         if (IsBusy)
         {
@@ -848,7 +928,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         _currentAction = action;
         IsBusy = true;
-        SetStatus(NeutralBrush, "Decrypting...");
+        SetStatus(NeutralBrush, string.IsNullOrWhiteSpace(busyStatusText) ? "Decrypting..." : busyStatusText);
         RaiseActionTextState();
 
         try
@@ -884,6 +964,111 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         StatusBrush = brush;
         StatusText = text;
+    }
+
+    private static ExpirationToolTipInfo? BuildExpirationToolTipInfo(JwtInspectionResult report, string header)
+    {
+        if (string.Equals(report.ExpiresUtcReadable, "Not present", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return new ExpirationToolTipInfo
+        {
+            Header = header,
+            StatusText = report.IsExpired ? "Expired" : "Active",
+            StatusBrush = report.IsExpired ? WarningBrush : SuccessBrush,
+            ExpiresLocalText = report.ExpiresReadable,
+            ExpiresUtcText = report.ExpiresUtcReadable,
+            RemainingText = report.RemainingTimeUntilExpiration,
+            TokenLifetimeText = report.TokenLifetime
+        };
+    }
+
+    private static string GetPayloadBusyStatus(string payloadInput)
+    {
+        if (!string.IsNullOrWhiteSpace(payloadInput) && payloadInput.Length >= LargePayloadHintLength)
+        {
+            return "Large payload detected. Decoding may take a few seconds...";
+        }
+
+        return "Decrypting...";
+    }
+
+    private static IReadOnlyList<SimpleClaimRowViewModel> BuildCookieClaimRows(RawJwtInspectionResult result)
+    {
+        return result.Claims
+            .Select(claim => new SimpleClaimRowViewModel(claim.Key, claim.Value))
+            .ToList();
+    }
+
+    private static IReadOnlyList<InspectClaimRowViewModel> BuildInspectClaimRows(
+        IReadOnlyList<KeyValuePair<string, string>> rawClaims,
+        string decryptedPayloadText)
+    {
+        var encryptedClaims = rawClaims.ToDictionary(claim => claim.Key, claim => claim.Value, StringComparer.OrdinalIgnoreCase);
+        var clearClaims = BuildDecryptedClaimMap(rawClaims, decryptedPayloadText);
+
+        return encryptedClaims.Keys
+            .Union(clearClaims.Keys, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .Select(key => new InspectClaimRowViewModel(
+                key,
+                clearClaims.TryGetValue(key, out var clearValue) ? clearValue : string.Empty,
+                encryptedClaims.TryGetValue(key, out var encryptedValue) ? encryptedValue : string.Empty))
+            .ToList();
+    }
+
+    private static Dictionary<string, string> BuildDecryptedClaimMap(
+        IReadOnlyList<KeyValuePair<string, string>> rawClaims,
+        string decryptedPayloadText)
+    {
+        if (string.Equals(decryptedPayloadText, DefaultJwtInspectDecryptedPayload, StringComparison.Ordinal))
+        {
+            return rawClaims.ToDictionary(claim => claim.Key, claim => claim.Value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        if (!TryParseTopLevelJsonObject(decryptedPayloadText, out var claims))
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return claims;
+    }
+
+    private static bool TryParseTopLevelJsonObject(string json, out Dictionary<string, string> values)
+    {
+        values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                values[property.Name] = property.Value.ValueKind switch
+                {
+                    JsonValueKind.String => property.Value.GetString() ?? string.Empty,
+                    JsonValueKind.Null => string.Empty,
+                    _ => property.Value.ToString()
+                };
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private string ResolvePayloadKey()
@@ -990,6 +1175,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         CompareCookiePayload = PrettyJsonOrRaw(result.CookiePayloadJson);
         CompareAuthPayloadEncrypted = PrettyJsonOrRaw(result.AuthPayloadJson);
+        CompareCookieExpirationInfo = BuildExpirationToolTipInfo(result.CookieReport, "Cookie JWT exp");
+        CompareAuthExpirationInfo = BuildExpirationToolTipInfo(result.AuthReport, "Auth JWT exp");
         if (result.AuthPayloadWasAlreadyPlainText)
         {
             SetStatus(NeutralBrush, "ℹ Payload is already in plain text.");
@@ -1457,4 +1644,33 @@ public sealed class CompareClaimRowViewModel
         brush.Freeze();
         return brush;
     }
+}
+
+public sealed class SimpleClaimRowViewModel
+{
+    public SimpleClaimRowViewModel(string claim, string value)
+    {
+        Claim = claim;
+        Value = value;
+    }
+
+    public string Claim { get; }
+
+    public string Value { get; }
+}
+
+public sealed class InspectClaimRowViewModel
+{
+    public InspectClaimRowViewModel(string claim, string authValue, string authEncryptedValue)
+    {
+        Claim = claim;
+        AuthValue = authValue;
+        AuthEncryptedValue = authEncryptedValue;
+    }
+
+    public string Claim { get; }
+
+    public string AuthValue { get; }
+
+    public string AuthEncryptedValue { get; }
 }

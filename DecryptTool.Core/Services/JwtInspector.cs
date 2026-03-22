@@ -57,6 +57,7 @@ public sealed class JwtInspector
             IssuedAtReadable = FormatDate(issuedAt),
             NotBeforeReadable = FormatDate(notBefore),
             ExpiresReadable = FormatDate(expires),
+            ExpiresUtcReadable = FormatUtcDate(expires),
             TokenLifetime = lifetime,
             RemainingTimeUntilExpiration = remaining,
             IsExpired = expires.HasValue && expires.Value <= DateTimeOffset.UtcNow
@@ -79,6 +80,11 @@ public sealed class JwtInspector
     private static string FormatDate(DateTimeOffset? value)
     {
         return value?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz") ?? "Not present";
+    }
+
+    private static string FormatUtcDate(DateTimeOffset? value)
+    {
+        return value?.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'") ?? "Not present";
     }
 
     private static string FormatDuration(TimeSpan duration)

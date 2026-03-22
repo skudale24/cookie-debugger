@@ -104,7 +104,7 @@ public sealed class ConsolePresenter
             new Panel(new Markup($"[bold]iat[/]\n{EscapeMarkup(result.IssuedAtReadable)}")).Border(BoxBorder.Rounded),
             new Panel(new Markup($"[bold]nbf[/]\n{EscapeMarkup(result.NotBeforeReadable)}")).Border(BoxBorder.Rounded));
         timing.AddRow(
-            new Panel(new Markup($"[bold]exp[/]\n{EscapeMarkup(result.ExpiresReadable)}")).Border(BoxBorder.Rounded),
+            new Panel(new Markup($"[bold]exp[/]\n{EscapeMarkup(result.ExpiresReadable)}\n[grey]UTC: {EscapeMarkup(result.ExpiresUtcReadable)}[/]")).Border(BoxBorder.Rounded),
             new Panel(new Markup($"[bold]Signature[/]\n{(result.SignatureValid ? "[green]Verified[/]" : "[red]Invalid[/]")}")).Border(BoxBorder.Rounded));
         AnsiConsole.Write(timing);
         AnsiConsole.Write(CreateClaimsTable(rawJwt.Claims));
@@ -199,7 +199,7 @@ public sealed class ConsolePresenter
         overview.AddColumn();
         overview.AddColumn();
         overview.AddRow(
-            new Panel(new Markup($"[bold]Expires[/]\n{EscapeMarkup(report.ExpiresReadable)}")).Header("exp").Border(BoxBorder.Rounded),
+            new Panel(new Markup($"[bold]Expires (Local)[/]\n{EscapeMarkup(report.ExpiresReadable)}\n[grey]UTC: {EscapeMarkup(report.ExpiresUtcReadable)}[/]")).Header("exp").Border(BoxBorder.Rounded),
             new Panel(new Markup($"[bold]Remaining[/]\n{EscapeMarkup(report.RemainingTimeUntilExpiration)}")).Header("ttl").Border(BoxBorder.Rounded));
         overview.AddRow(
             new Panel(new Markup($"[bold]Issued At[/]\n{EscapeMarkup(report.IssuedAtReadable)}")).Header("iat").Border(BoxBorder.Rounded),
@@ -398,7 +398,8 @@ public sealed class ConsolePresenter
     {
         var payload = new Dictionary<string, object?>
         {
-            ["expReadable"] = report.ExpiresReadable,
+            ["expUtcReadable"] = report.ExpiresUtcReadable,
+            ["expLocalReadable"] = report.ExpiresReadable,
             ["remainingTimeUntilExpiration"] = report.RemainingTimeUntilExpiration,
             ["isExpired"] = report.IsExpired
         };

@@ -5,6 +5,7 @@ namespace CookieDebugger.Services;
 public sealed class CookieParser
 {
     private const string Delimiter = "|#**#|";
+    private const int MaxEncryptedPayloadCandidateLength = 512 * 1024;
 
     public string ExtractEncryptedJwt(string cookieString)
     {
@@ -69,13 +70,25 @@ public sealed class CookieParser
             yield break;
         }
 
-        yield return trimmed.Replace(" ", "+", StringComparison.Ordinal);
+        var plusNormalized = trimmed.Replace(" ", "+", StringComparison.Ordinal);
+        if (plusNormalized.Length <= MaxEncryptedPayloadCandidateLength)
+        {
+            yield return plusNormalized;
+        }
 
         var withoutWhitespace = string.Concat(trimmed.Where(c => !char.IsWhiteSpace(c)));
         if (!string.Equals(withoutWhitespace, trimmed, StringComparison.Ordinal))
         {
-            yield return withoutWhitespace;
-            yield return withoutWhitespace.Replace(" ", "+", StringComparison.Ordinal);
+            if (withoutWhitespace.Length <= MaxEncryptedPayloadCandidateLength)
+            {
+                yield return withoutWhitespace;
+            }
+
+            var whitespaceNormalized = withoutWhitespace.Replace(" ", "+", StringComparison.Ordinal);
+            if (whitespaceNormalized.Length <= MaxEncryptedPayloadCandidateLength)
+            {
+                yield return whitespaceNormalized;
+            }
         }
     }
 

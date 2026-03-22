@@ -9,6 +9,7 @@
             Padding="6">
         <RichTextBox x:Name="Viewer"
                      IsReadOnly="True"
+                     IsDocumentEnabled="True"
                      BorderThickness="0"
                      Background="Transparent"
                      FontFamily="Consolas"

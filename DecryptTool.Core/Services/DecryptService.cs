@@ -220,6 +220,7 @@ public sealed class DecryptService(
                 IssuedAtReadable = "N/A",
                 NotBeforeReadable = "N/A",
                 ExpiresReadable = "N/A",
+                ExpiresUtcReadable = "N/A",
                 OverallStatus = "Unreadable JWT",
                 Messages = new[]
                 {
@@ -317,6 +318,7 @@ public sealed class DecryptService(
             IssuedAtReadable = report.IssuedAtReadable,
             NotBeforeReadable = report.NotBeforeReadable,
             ExpiresReadable = report.ExpiresReadable,
+            ExpiresUtcReadable = report.ExpiresUtcReadable,
             OverallStatus = overallStatus,
             Messages = messages
         };
@@ -453,6 +455,8 @@ public sealed class DecryptService(
                     pair => pair.Key,
                     pair => (object?)pair.Value,
                     StringComparer.OrdinalIgnoreCase)),
+            CookieReport = cookieInspection.Report,
+            AuthReport = authInspection.Report,
             AuthPayloadWasAlreadyPlainText = authPayloadWasAlreadyPlainText,
             AuthPayloadDecryptionFailed = authPayloadDecryptionFailed,
             Differences = differences

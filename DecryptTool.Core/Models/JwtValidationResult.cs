@@ -22,6 +22,8 @@ public sealed class JwtValidationResult
 
     public required string ExpiresReadable { get; init; }
 
+    public required string ExpiresUtcReadable { get; init; }
+
     public required string OverallStatus { get; init; }
 
     public required IReadOnlyList<string> Messages { get; init; }

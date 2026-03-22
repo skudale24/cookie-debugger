@@ -10,6 +10,8 @@ public sealed class JwtInspectionResult
 
     public string ExpiresReadable { get; init; } = "Not present";
 
+    public string ExpiresUtcReadable { get; init; } = "Not present";
+
     public string TokenLifetime { get; init; } = "Unknown";
 
     public string RemainingTimeUntilExpiration { get; init; } = "Unknown";

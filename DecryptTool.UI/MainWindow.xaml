@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:DecryptTool.UI.Controls"
+        xmlns:models="clr-namespace:DecryptTool.UI.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -86,12 +87,154 @@
         </Style>
         <Style x:Key="GuidanceToolTip" TargetType="ToolTip">
             <Setter Property="MaxWidth" Value="380" />
-            <Setter Property="Padding" Value="14" />
+            <Setter Property="Padding" Value="10" />
             <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#BFDBFE" />
             <Setter Property="BorderThickness" Value="1.5" />
             <Setter Property="Foreground" Value="#0F172A" />
             <Setter Property="HasDropShadow" Value="True" />
+        </Style>
+        <DataTemplate x:Key="ExpirationToolTipContentTemplate" DataType="{x:Type models:ExpirationToolTipInfo}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="#0F172A"
+                               Text="{Binding Header}" />
+                    <Border Margin="8,0,0,0"
+                            Padding="8,3"
+                            CornerRadius="999"
+                            Background="{Binding StatusBrush}">
+                        <TextBlock FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   Text="{Binding StatusText}" />
+                    </Border>
+                </StackPanel>
+                <Border Margin="0,8,0,0"
+                        Padding="9,7"
+                        CornerRadius="8"
+                        Background="#EFF6FF">
+                    <StackPanel>
+                        <TextBlock FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#1E3A8A"
+                                   Text="Expires (Local)" />
+                        <TextBlock Margin="0,3,0,0"
+                                   FontWeight="SemiBold"
+                                   Foreground="#0F172A"
+                                   Text="{Binding ExpiresLocalText}" />
+                        <TextBlock Margin="0,3,0,0"
+                                   FontSize="11.5"
+                                   Foreground="#475569"
+                                   Text="{Binding ExpiresUtcText, StringFormat=UTC: {0}}" />
+                    </StackPanel>
+                </Border>
+                <Border Margin="0,6,0,0"
+                        Padding="9,7"
+                        CornerRadius="8"
+                        Background="#F0FDF4">
+                    <StackPanel>
+                        <TextBlock FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#166534"
+                                   Text="Time Remaining" />
+                        <TextBlock Margin="0,3,0,0"
+                                   Foreground="#0F172A"
+                                   Text="{Binding RemainingText}" />
+                    </StackPanel>
+                </Border>
+                <Border Margin="0,6,0,0"
+                        Padding="9,7"
+                        CornerRadius="8"
+                        Background="#FFF7ED">
+                    <StackPanel>
+                        <TextBlock FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#9A3412"
+                                   Text="Token Lifetime" />
+                        <TextBlock Margin="0,3,0,0"
+                                   Foreground="#0F172A"
+                                   Text="{Binding TokenLifetimeText}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+        <Style x:Key="CompareCookieExpText" TargetType="TextBlock" BasedOn="{StaticResource CompareGridText}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Claim}" Value="exp">
+                    <Setter Property="Foreground" Value="#1D4ED8" />
+                    <Setter Property="Cursor" Value="Hand" />
+                    <Setter Property="TextDecorations" Value="Underline" />
+                    <Setter Property="Tag"
+                            Value="{Binding DataContext.CompareCookieExpirationInfo, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <Setter Property="ToolTip">
+                        <Setter.Value>
+                            <ToolTip Style="{StaticResource GuidanceToolTip}"
+                                     DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}"
+                                     Content="{Binding}"
+                                     ContentTemplate="{StaticResource ExpirationToolTipContentTemplate}" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CompareAuthExpText" TargetType="TextBlock" BasedOn="{StaticResource CompareGridText}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Claim}" Value="exp">
+                    <Setter Property="Foreground" Value="#1D4ED8" />
+                    <Setter Property="Cursor" Value="Hand" />
+                    <Setter Property="TextDecorations" Value="Underline" />
+                    <Setter Property="Tag"
+                            Value="{Binding DataContext.CompareAuthExpirationInfo, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <Setter Property="ToolTip">
+                        <Setter.Value>
+                            <ToolTip Style="{StaticResource GuidanceToolTip}"
+                                     DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}"
+                                     Content="{Binding}"
+                                     ContentTemplate="{StaticResource ExpirationToolTipContentTemplate}" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CookieClaimExpText" TargetType="TextBlock" BasedOn="{StaticResource CompareGridText}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Claim}" Value="exp">
+                    <Setter Property="Foreground" Value="#1D4ED8" />
+                    <Setter Property="Cursor" Value="Hand" />
+                    <Setter Property="TextDecorations" Value="Underline" />
+                    <Setter Property="Tag"
+                            Value="{Binding DataContext.CookieExpirationInfo, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <Setter Property="ToolTip">
+                        <Setter.Value>
+                            <ToolTip Style="{StaticResource GuidanceToolTip}"
+                                     DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}"
+                                     Content="{Binding}"
+                                     ContentTemplate="{StaticResource ExpirationToolTipContentTemplate}" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="InspectAuthExpText" TargetType="TextBlock" BasedOn="{StaticResource CompareGridText}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Claim}" Value="exp">
+                    <Setter Property="Foreground" Value="#1D4ED8" />
+                    <Setter Property="Cursor" Value="Hand" />
+                    <Setter Property="TextDecorations" Value="Underline" />
+                    <Setter Property="Tag"
+                            Value="{Binding DataContext.JwtInspectExpirationInfo, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <Setter Property="ToolTip">
+                        <Setter.Value>
+                            <ToolTip Style="{StaticResource GuidanceToolTip}"
+                                     DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}"
+                                     Content="{Binding}"
+                                     ContentTemplate="{StaticResource ExpirationToolTipContentTemplate}" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -252,8 +395,6 @@
                         <Grid Margin="20">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.2*" />
@@ -262,12 +403,25 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Row="0" Grid.Column="0">
-                                <controls:FloatingLabelTextBox Height="140"
+                                <controls:FloatingLabelTextBox Height="120"
                                                                Label="Encrypted Cookie"
                                                                AcceptsReturn="True"
                                                                TextWrapping="Wrap"
                                                                VerticalScrollBarVisibility="Auto"
                                                                Text="{Binding CookieInput, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="120"
+                                                               Label="Extracted JWT"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               IsReadOnly="True"
+                                                               Text="{Binding CookieExtractedJwt, Mode=OneWay}" />
+                                <StackPanel Margin="0,14,0,0">
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="180"
+                                                         JsonText="{Binding CookieHeaderJson, Mode=OneWay}" />
+                                </StackPanel>
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2">
@@ -310,13 +464,29 @@
                                         IsEnabled="{Binding CanSendCookieToCompare}"
                                         Click="SendCookieToCompareButton_Click"
                                         Content="Compare with Auth Token" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Style="{StaticResource SectionTitle}" Text="Output (JSON)" />
-                                <controls:JsonViewer Margin="0,10,0,0"
-                                                     MinHeight="320"
-                                                     JsonText="{Binding CookieOutput, Mode=OneWay}" />
+                                <TextBlock Margin="0,18,0,0"
+                                           Style="{StaticResource SectionTitle}"
+                                           Text="Cookie Claims" />
+                                <DataGrid Margin="0,10,0,0"
+                                          MinHeight="420"
+                                          AutoGenerateColumns="False"
+                                          ItemsSource="{Binding CookieClaimRows}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Claim"
+                                                            Binding="{Binding Claim}"
+                                                            Width="0.95*"
+                                                            ElementStyle="{StaticResource CompareGridText}" />
+                                        <DataGridTemplateColumn Header="Cookie"
+                                                                Width="1.45*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Style="{StaticResource CookieClaimExpText}"
+                                                               Text="{Binding Value}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </StackPanel>
                         </Grid>
                     </ScrollViewer>
@@ -399,14 +569,6 @@
                                         Click="SendInspectToCompareButton_Click"
                                         Content="Send to Compare" />
 
-                                <TextBlock Grid.Column="3"
-                                           HorizontalAlignment="Right"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,8,0"
-                                           Style="{StaticResource BodyText}"
-                                           Foreground="#5B6D68"
-                                           Text="{Binding JwtInspectExpiryDetail}" />
-
                                 <Border Grid.Column="5"
                                         Style="{StaticResource StatusPill}"
                                         Background="{Binding JwtInspectExpiryBadgeBrush}"
@@ -418,38 +580,50 @@
                             </Grid>
 
                             <Grid Grid.Row="4">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="12" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="0.72*" />
                                     <ColumnDefinition Width="18" />
                                     <ColumnDefinition Width="1*" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="1*" />
                                 </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Row="0" Grid.Column="0">
+                                <StackPanel Grid.Column="0">
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
                                     <controls:JsonViewer Margin="0,10,0,0"
                                                          MinHeight="240"
                                                          JsonText="{Binding JwtInspectHeader, Mode=OneWay}" />
                                 </StackPanel>
 
-                                <StackPanel Grid.Row="0" Grid.Column="2">
-                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Current JWT Payload" />
-                                    <controls:JsonViewer Margin="0,10,0,0"
-                                                         MinHeight="240"
-                                                         JsonText="{Binding JwtInspectPayload, Mode=OneWay}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Row="0" Grid.Column="4">
-                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Decrypted Claim Values" />
-                                    <controls:JsonViewer Margin="0,10,0,0"
-                                                         MinHeight="240"
-                                                         JsonText="{Binding JwtInspectDecryptedPayload, Mode=OneWay}" />
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Claim View" />
+                                    <DataGrid Margin="0,10,0,0"
+                                              MinHeight="320"
+                                              AutoGenerateColumns="False"
+                                              ItemsSource="{Binding JwtInspectClaimRows}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Claim"
+                                                                Binding="{Binding Claim}"
+                                                                Width="0.78*"
+                                                                ElementStyle="{StaticResource CompareGridText}" />
+                                            <DataGridTemplateColumn Header="Auth Clear"
+                                                                    Width="1.08*">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource InspectAuthExpText}"
+                                                                   Text="{Binding AuthValue}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="Auth Encrypted"
+                                                                    Width="1.08*">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource InspectAuthExpText}"
+                                                                   Text="{Binding AuthEncryptedValue}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -674,18 +848,33 @@
                                                             Binding="{Binding Claim}"
                                                             Width="0.82*"
                                                             ElementStyle="{StaticResource CompareGridText}" />
-                                        <DataGridTextColumn Header="Cookie"
-                                                            Binding="{Binding CookieValue}"
-                                                            Width="1.18*"
-                                                            ElementStyle="{StaticResource CompareGridText}" />
-                                        <DataGridTextColumn Header="Auth Clear"
-                                                            Binding="{Binding AuthValue}"
-                                                            Width="1.18*"
-                                                            ElementStyle="{StaticResource CompareGridText}" />
-                                        <DataGridTextColumn Header="Auth Raw"
-                                                            Binding="{Binding AuthEncryptedValue}"
-                                                            Width="1.18*"
-                                                            ElementStyle="{StaticResource CompareGridText}" />
+                                        <DataGridTemplateColumn Header="Cookie"
+                                                                Width="1.18*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Style="{StaticResource CompareCookieExpText}"
+                                                               Text="{Binding CookieValue}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="Auth Clear"
+                                                                Width="1.18*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Style="{StaticResource CompareAuthExpText}"
+                                                               Text="{Binding AuthValue}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="Auth Raw"
+                                                                Width="1.18*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Style="{StaticResource CompareAuthExpText}"
+                                                               Text="{Binding AuthEncryptedValue}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
                                         <DataGridTemplateColumn Header="Status"
                                                                 Width="96"
                                                                 HeaderStyle="{StaticResource CompareStatusHeader}"
@@ -732,6 +921,7 @@
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Cookie JWT Payload" />
                                         <controls:JsonViewer Margin="0,10,0,0"
                                                              MinHeight="220"
+                                                             ExpirationInfo="{Binding CompareCookieExpirationInfo, Mode=OneWay}"
                                                              JsonText="{Binding CompareCookiePayload, Mode=OneWay}" />
                                     </StackPanel>
 
@@ -739,6 +929,7 @@
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Auth JWT Payload (Encrypted)" />
                                         <controls:JsonViewer Margin="0,10,0,0"
                                                              MinHeight="220"
+                                                             ExpirationInfo="{Binding CompareAuthExpirationInfo, Mode=OneWay}"
                                                              JsonText="{Binding CompareAuthPayloadEncrypted, Mode=OneWay}" />
                                     </StackPanel>
 

@@ -8,6 +8,10 @@ public sealed class TokenComparisonResult
 
     public required string AuthDecryptedPayloadJson { get; init; }
 
+    public required JwtInspectionResult CookieReport { get; init; }
+
+    public required JwtInspectionResult AuthReport { get; init; }
+
     public required bool AuthPayloadWasAlreadyPlainText { get; init; }
 
     public required bool AuthPayloadDecryptionFailed { get; init; }
