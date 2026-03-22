@@ -27,6 +27,7 @@
                      VerticalContentAlignment="Center"
                      Padding="0"
                      MinHeight="{Binding MinTextBoxHeight, ElementName=Root}"
+                     PreviewMouseLeftButtonDown="InputBox_OnPreviewMouseLeftButtonDown"
                      GotFocus="InputBox_OnGotFocus"
                      LostFocus="InputBox_OnLostFocus"
                      TextChanged="InputBox_OnTextChanged">

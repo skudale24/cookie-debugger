@@ -27,7 +27,7 @@ public sealed class SecretResolver
             return _cachedEncryptionKey;
         }
 
-        var environmentValue = Environment.GetEnvironmentVariable(EncryptionKeyEnvVar);
+        var environmentValue = GetEnvironmentValue(EncryptionKeyEnvVar);
         return string.IsNullOrWhiteSpace(environmentValue)
             ? null
             : environmentValue.Trim();
@@ -65,7 +65,7 @@ public sealed class SecretResolver
 
     private static string ResolveEncryptionSecret()
     {
-        var environmentValue = Environment.GetEnvironmentVariable(EncryptionKeyEnvVar);
+        var environmentValue = GetEnvironmentValue(EncryptionKeyEnvVar);
         if (!string.IsNullOrWhiteSpace(environmentValue))
         {
             return environmentValue.Trim();
@@ -76,7 +76,7 @@ public sealed class SecretResolver
 
     private static string ResolveVisibleSecret(string envVarName, string promptLabel)
     {
-        var environmentValue = Environment.GetEnvironmentVariable(envVarName);
+        var environmentValue = GetEnvironmentValue(envVarName);
         if (!string.IsNullOrWhiteSpace(environmentValue))
         {
             return environmentValue.Trim();
@@ -87,7 +87,7 @@ public sealed class SecretResolver
 
     private static string ResolveSecret(string envVarName, string promptLabel)
     {
-        var environmentValue = Environment.GetEnvironmentVariable(envVarName);
+        var environmentValue = GetEnvironmentValue(envVarName);
         if (!string.IsNullOrWhiteSpace(environmentValue))
         {
             return environmentValue.Trim();
@@ -185,5 +185,25 @@ public sealed class SecretResolver
         }
 
         return normalized;
+    }
+
+    private static string? GetEnvironmentValue(string variableName)
+    {
+        var processValue = Environment.GetEnvironmentVariable(variableName);
+        if (!string.IsNullOrWhiteSpace(processValue))
+        {
+            return processValue;
+        }
+
+        var userValue = Environment.GetEnvironmentVariable(variableName, EnvironmentVariableTarget.User);
+        if (!string.IsNullOrWhiteSpace(userValue))
+        {
+            return userValue;
+        }
+
+        var machineValue = Environment.GetEnvironmentVariable(variableName, EnvironmentVariableTarget.Machine);
+        return string.IsNullOrWhiteSpace(machineValue)
+            ? null
+            : machineValue;
     }
 }

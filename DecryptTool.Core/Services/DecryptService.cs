@@ -324,7 +324,7 @@ public sealed class DecryptService(
 
     public string DecryptPayload(string encryptedText, string encryptionKey)
     {
-        var normalizedPayload = NormalizeWrappedInput(encryptedText);
+        var normalizedPayload = cookieParser.NormalizeEncryptedPayloadCandidate(NormalizeWrappedInput(encryptedText));
         if (string.IsNullOrWhiteSpace(normalizedPayload))
         {
             throw new ArgumentException("Encrypted payload is required.");
@@ -841,7 +841,7 @@ public sealed class DecryptService(
 
     private Dictionary<string, string>? TryDecryptClaimsWithEnvironmentKey(string jwt, IReadOnlyDictionary<string, string> authClaims)
     {
-        var encryptionKey = Environment.GetEnvironmentVariable("TOK_ENCRYPTION_KEY");
+        var encryptionKey = GetEnvironmentValue("TOK_ENCRYPTION_KEY");
         if (string.IsNullOrWhiteSpace(encryptionKey) || !CanDecryptJwtClaims(jwt, encryptionKey))
         {
             return null;
@@ -851,6 +851,26 @@ public sealed class DecryptService(
             pair => pair.Key,
             pair => NormalizeComparableValue(TryDecryptClaimValue(pair.Value, encryptionKey)),
             StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string? GetEnvironmentValue(string variableName)
+    {
+        var processValue = Environment.GetEnvironmentVariable(variableName);
+        if (!string.IsNullOrWhiteSpace(processValue))
+        {
+            return processValue;
+        }
+
+        var userValue = Environment.GetEnvironmentVariable(variableName, EnvironmentVariableTarget.User);
+        if (!string.IsNullOrWhiteSpace(userValue))
+        {
+            return userValue;
+        }
+
+        var machineValue = Environment.GetEnvironmentVariable(variableName, EnvironmentVariableTarget.Machine);
+        return string.IsNullOrWhiteSpace(machineValue)
+            ? null
+            : machineValue;
     }
 
     private Dictionary<string, string>? TryDecryptClaimsWithFingerprint(

@@ -1,16 +1,19 @@
 # Cookie Debugger
 
-Console utility for decrypting and inspecting cookies/JWTs, comparing cookie and auth JWT claims from HAR files, and automating common JWT workflows from the command line.
+Console utility and WPF UI for decrypting and inspecting cookies/JWTs, comparing cookie and auth JWT claims from HAR files, and automating common JWT workflows.
 
 ## Local Setup
 
-Set the encryption key before using payload or HAR decryption:
+Set the encryption key before using payload or HAR decryption, and optionally set the cookie fingerprint for cookie and compare workflows:
 
 ```powershell
 setx TOK_ENCRYPTION_KEY ********
+setx TOK_COOKIE_FINGERPRINT ********
 ```
 
 Open a new terminal after running `setx`.
+
+The UI and CLI now resolve these values from process, user, and machine environment scope. That means values set with `setx` are picked up consistently after restart.
 
 The repository is now split into a single solution with separate shared/core, CLI, and WPF projects:
 
@@ -60,6 +63,31 @@ tok --help
 
 Running with no arguments shows command help.
 
+## UI Usage
+
+Launch the desktop app with:
+
+```bash
+dotnet run --project .\DecryptTool.UI
+```
+
+Or after publishing, run `Tok.UI.exe`.
+
+The `Analyze Input` box can now recognize and route several common inputs automatically:
+
+- JWT -> opens `Inspect JWT` and immediately evaluates it
+- Encrypted cookie -> opens `Cookie`
+- Raw encrypted payload -> opens `Payload` and immediately decrypts it when an encryption key is available
+- Request headers copied from browser DevTools -> opens `Compare` and immediately runs the comparison when both `Authorization: Bearer ...` and `encinfo=...` are present
+- `Copy as cURL` output -> opens `Compare` and immediately runs the comparison when both values are present
+- `Copy as fetch` output -> opens `Compare` and immediately runs the comparison when both values are present
+
+Notes:
+
+- The Cookie and Compare tabs let you leave the fingerprint blank and use `TOK_COOKIE_FINGERPRINT` instead.
+- The Payload tab lets you leave the encryption key blank and use `TOK_ENCRYPTION_KEY` instead.
+- The app starts with an empty Cookie tab instead of restoring the previous cookie and output, to avoid confusing first-time users.
+
 ## Commands
 
 Primary commands:
@@ -84,6 +112,7 @@ Notes:
 - For encrypted cookie auto-detection, pass `--fp` and optionally `--env` alongside the input.
 - Encrypted cookie decryption resolves the fingerprint in this order: `--fp`, then `TOK_COOKIE_FINGERPRINT`, then a visible prompt. If the first fingerprint cannot decrypt the cookie, `tok` prompts again.
 - Raw encrypted payload auto-detection resolves the encryption key in this order: `TOK_ENCRYPTION_KEY`, then a visible prompt. If the first key cannot decrypt the payload, `tok` prompts again.
+- Raw encrypted payload detection tolerates wrapped or whitespace-separated pasted values in addition to plain base64 text.
 - `validate` resolves the JWT signing key in this order: `--key`, then a visible prompt. You can pass `--key <value>` directly on the command line, including PEM-like values that start with hyphens.
 - JWT-oriented commands such as `inspect`, `decode`, `validate`, and `can-read` accept either a raw JWT or an `Authorization`-style value like `Bearer <token>`.
 - `inspect` and `validate` render their normal JWT output first. If payload claims look encrypted, `tok` checks `TOK_ENCRYPTION_KEY` first, prompts only if needed, and then appends a `Decrypted Payload Values` section.

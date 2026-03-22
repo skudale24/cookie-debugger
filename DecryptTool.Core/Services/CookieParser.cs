@@ -29,7 +29,7 @@ public sealed class CookieParser
         }
 
         var normalized = NormalizeEncryptedPayloadCandidate(decoded);
-        if (!LooksLikeEncryptedPayload(normalized))
+        if (string.IsNullOrWhiteSpace(normalized))
         {
             throw new ArgumentException(
                 $"Cookie string does not contain the expected delimiter '{Delimiter}' and is not a recognized encrypted payload.");
@@ -45,25 +45,55 @@ public sealed class CookieParser
             return false;
         }
 
-        var normalized = NormalizeEncryptedPayloadCandidate(input);
-        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length < 24)
+        return !string.IsNullOrWhiteSpace(NormalizeEncryptedPayloadCandidate(input));
+    }
+
+    public string NormalizeEncryptedPayloadCandidate(string input)
+    {
+        foreach (var candidate in GetEncryptedPayloadCandidates(input))
+        {
+            if (IsValidEncryptedPayload(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static IEnumerable<string> GetEncryptedPayloadCandidates(string input)
+    {
+        var trimmed = input.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            yield break;
+        }
+
+        yield return trimmed.Replace(" ", "+", StringComparison.Ordinal);
+
+        var withoutWhitespace = string.Concat(trimmed.Where(c => !char.IsWhiteSpace(c)));
+        if (!string.Equals(withoutWhitespace, trimmed, StringComparison.Ordinal))
+        {
+            yield return withoutWhitespace;
+            yield return withoutWhitespace.Replace(" ", "+", StringComparison.Ordinal);
+        }
+    }
+
+    private static bool IsValidEncryptedPayload(string candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate) || candidate.Length < 24)
         {
             return false;
         }
 
         try
         {
-            var payloadBytes = Convert.FromBase64String(normalized);
+            var payloadBytes = Convert.FromBase64String(candidate);
             return payloadBytes.Length >= 16;
         }
         catch (FormatException)
         {
             return false;
         }
-    }
-
-    private static string NormalizeEncryptedPayloadCandidate(string input)
-    {
-        return input.Trim().Replace(" ", "+", StringComparison.Ordinal);
     }
 }

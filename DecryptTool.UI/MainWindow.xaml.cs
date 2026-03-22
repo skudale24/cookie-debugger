@@ -1,9 +1,11 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using CookieDebugger.Services;
 using CookieDebugger.State;
 using DecryptTool.UI.ViewModels;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Win32;
 
 namespace DecryptTool.UI;
 
@@ -36,6 +38,18 @@ public partial class MainWindow : Window
         await _viewModel.AutoDetectAsync();
     }
 
+    private async void BrowseHarButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PickHarFile();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        _viewModel.AutoDetectInput = path;
+        await _viewModel.AutoDetectAsync();
+    }
+
     private async void CookieDecryptButton_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.DecryptCookieAsync();
@@ -59,6 +73,22 @@ public partial class MainWindow : Window
     private async void CompareTokensButton_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.CompareTokensAsync();
+    }
+
+    private async void LoadHarButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.LoadHarAsync();
+    }
+
+    private void BrowseHarFromCompareButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PickHarFile();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        _viewModel.CompareHarFilePath = path;
     }
 
     private void SendCookieToCompareButton_Click(object sender, RoutedEventArgs e)
@@ -107,6 +137,55 @@ public partial class MainWindow : Window
         {
             Clipboard.SetText(report);
         }
+    }
+
+    private void AutoDetectDropTarget_PreviewDragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.Text))
+        {
+            e.Effects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+
+        e.Handled = true;
+    }
+
+    private async void AutoDetectDropTarget_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) &&
+            e.Data.GetData(DataFormats.FileDrop) is string[] files &&
+            files.Length > 0)
+        {
+            _viewModel.AutoDetectInput = files[0];
+            await _viewModel.AutoDetectAsync();
+            return;
+        }
+
+        if (e.Data.GetDataPresent(DataFormats.Text) &&
+            e.Data.GetData(DataFormats.Text) is string text &&
+            !string.IsNullOrWhiteSpace(text))
+        {
+            _viewModel.AutoDetectInput = text;
+            await _viewModel.AutoDetectAsync();
+        }
+    }
+
+    private static string? PickHarFile()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select HAR File",
+            Filter = "HAR files (*.har)|*.har|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        return dialog.ShowDialog() == true
+            ? dialog.FileName
+            : null;
     }
 
     private static DecryptService CreateDecryptService()

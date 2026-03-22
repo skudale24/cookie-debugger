@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.IO;
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows.Media;
 using CookieDebugger.Models;
 using CookieDebugger.Services;
@@ -12,17 +14,27 @@ namespace DecryptTool.UI.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
+    private const int CookieTabIndex = 0;
+    private const int InspectTabIndex = 1;
+    private const int PayloadTabIndex = 2;
+    private const int CompareTabIndex = 3;
+    private const int ValidateTabIndex = 4;
+    private const int RawInputTabIndex = 5;
     private const string DefaultJwtInspectHeader = "{}";
     private const string DefaultJwtInspectPayload = "{}";
     private const string DefaultJwtInspectDecryptedPayload = "Claims are already in plain text.";
     private const string DefaultJwtValidateSummary = "Validation has not been run yet.";
     private const string DefaultComparePayloadJson = "{}";
+    private const string DefaultJwtInspectContext = "Paste a JWT, Authorization header, fetch/cURL request, or use Analyze Input.";
+    private const string DefaultHarSummary = "Load a HAR file to extract the auth token, decrypt the cookie, and compare claims.";
+    private const string DefaultRawInputSummary = "Unclassified input is shown here so you can inspect or copy it manually.";
     private static readonly Brush SuccessBrush = CreateBrush("#2F7D32");
     private static readonly Brush WarningBrush = CreateBrush("#C48A00");
     private static readonly Brush ErrorBrush = CreateBrush("#B23A2B");
     private static readonly Brush NeutralBrush = CreateBrush("#355C54");
     private static readonly Brush LightTextBrush = CreateBrush("#FFF8ED");
     private const string EncryptionEnvVar = "TOK_ENCRYPTION_KEY";
+    private const string FingerprintEnvVar = "TOK_COOKIE_FINGERPRINT";
 
     private readonly DecryptService _decryptService;
     private readonly UserStateStore _userStateStore;
@@ -35,6 +47,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private string _cookieInput = string.Empty;
     private string _fingerprint = string.Empty;
+    private string _fingerprintSource = $"Leave blank to use {FingerprintEnvVar}.";
     private AppEnvironment _selectedEnvironment = AppEnvironment.Dev;
     private string _cookieOutput = string.Empty;
     private string _lastCookieJwt = string.Empty;
@@ -44,6 +57,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _jwtInspectHeader = DefaultJwtInspectHeader;
     private string _jwtInspectPayload = DefaultJwtInspectPayload;
     private string _jwtInspectDecryptedPayload = DefaultJwtInspectDecryptedPayload;
+    private string _jwtInspectContext = DefaultJwtInspectContext;
     private string _jwtInspectKeySource = $"Leave blank to use {EncryptionEnvVar}.";
     private string _jwtInspectExpiryBadgeText = "⚠ Not inspected";
     private Brush _jwtInspectExpiryBadgeBrush = WarningBrush;
@@ -63,11 +77,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private string _compareCookieJwt = string.Empty;
     private string _compareAuthJwt = string.Empty;
+    private string _compareHarFilePath = string.Empty;
+    private string _compareHarEncryptionKey = string.Empty;
+    private string _compareHarKeySource = $"Leave blank to use {EncryptionEnvVar}.";
+    private string _compareHarSummary = DefaultHarSummary;
     private bool _showDifferencesOnly;
     private IReadOnlyList<CompareClaimRowViewModel> _allCompareRows = Array.Empty<CompareClaimRowViewModel>();
     private IReadOnlyList<CompareClaimRowViewModel> _compareRows = Array.Empty<CompareClaimRowViewModel>();
     private string _compareCookiePayload = DefaultComparePayloadJson;
     private string _compareAuthPayloadEncrypted = DefaultComparePayloadJson;
+    private string _rawInput = string.Empty;
 
     public MainWindowViewModel(DecryptService decryptService, UserStateStore userStateStore)
     {
@@ -167,9 +186,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _fingerprint, value))
             {
+                FingerprintSource = string.IsNullOrWhiteSpace(value)
+                    ? GetFingerprintEnvironmentMessage()
+                    : "Using the fingerprint entered above.";
                 RaiseCommandState();
             }
         }
+    }
+
+    public string FingerprintSource
+    {
+        get => _fingerprintSource;
+        private set => SetField(ref _fingerprintSource, value);
     }
 
     public AppEnvironment SelectedEnvironment
@@ -226,6 +254,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _jwtInspectDecryptedPayload;
         private set => SetField(ref _jwtInspectDecryptedPayload, value);
+    }
+
+    public string JwtInspectContext
+    {
+        get => _jwtInspectContext;
+        private set => SetField(ref _jwtInspectContext, value);
     }
 
     public string JwtInspectKeySource
@@ -402,9 +436,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _compareCookiePayload, value);
     }
 
+    public string RawInput
+    {
+        get => _rawInput;
+        private set => SetField(ref _rawInput, value);
+    }
+
     public bool CanDecryptCookie => !IsBusy &&
                                      !string.IsNullOrWhiteSpace(CookieInput) &&
-                                     !string.IsNullOrWhiteSpace(Fingerprint);
+                                     (!string.IsNullOrWhiteSpace(Fingerprint) || HasEnvironmentFingerprint());
 
     public bool CanInspectJwt => !IsBusy && !string.IsNullOrWhiteSpace(JwtInspectInput);
 
@@ -426,6 +466,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                                      !string.IsNullOrWhiteSpace(CompareCookieJwt) &&
                                      !string.IsNullOrWhiteSpace(CompareAuthJwt);
 
+    public bool CanLoadHar => !IsBusy &&
+                              !string.IsNullOrWhiteSpace(CompareHarFilePath) &&
+                              (!string.IsNullOrWhiteSpace(CompareHarEncryptionKey) || HasEnvironmentEncryptionKey());
+
     public bool CanSendCookieToCompare => !string.IsNullOrWhiteSpace(_lastCookieJwt);
 
     public bool CanSendInspectToCompare => !string.IsNullOrWhiteSpace(JwtInspectInput);
@@ -440,16 +484,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         var state = await _userStateStore.LoadAsync();
         Fingerprint = state.LastFingerprint;
-        CookieInput = state.LastEncryptedCookie;
         SelectedEnvironment = DecryptService.ParseEnvironment(state.LastEnvironment);
-        CookieOutput = PrettyJsonOrRaw(state.LastDecryptedJwt);
-        _lastCookieJwt = state.LastDecryptedJwt;
+        CookieInput = string.Empty;
+        CookieOutput = string.Empty;
+        _lastCookieJwt = string.Empty;
+        JwtInspectContext = DefaultJwtInspectContext;
+        FingerprintSource = string.IsNullOrWhiteSpace(Fingerprint)
+            ? GetFingerprintEnvironmentMessage()
+            : "Using the fingerprint entered above.";
         JwtInspectKeySource = HasEnvironmentEncryptionKey()
             ? $"Using {EncryptionEnvVar} from your environment."
             : $"Leave blank to use {EncryptionEnvVar}.";
         PayloadKeySource = HasEnvironmentEncryptionKey()
             ? $"Using {EncryptionEnvVar} from your environment."
             : $"Leave blank to use {EncryptionEnvVar}.";
+        CompareHarKeySource = HasEnvironmentEncryptionKey()
+            ? $"Using {EncryptionEnvVar} from your environment."
+            : $"Leave blank to use {EncryptionEnvVar}.";
+        CompareHarSummary = DefaultHarSummary;
+        RawInput = string.Empty;
         SetStatus(NeutralBrush, "Ready");
     }
 
@@ -462,10 +515,40 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
+        if (IsHarInput(input))
+        {
+            CompareHarFilePath = input;
+            SelectedTabIndex = CompareTabIndex;
+            await LoadHarAsync();
+            return;
+        }
+
+        if (TryExtractRequestInputs(input, out var compareCookie, out var compareAuthJwt))
+        {
+            SelectedTabIndex = InspectTabIndex;
+            JwtInspectInput = compareAuthJwt;
+            JwtInspectContext = BuildRequestContext(input, compareCookie, compareAuthJwt);
+            CompareCookieJwt = compareCookie;
+            CompareAuthJwt = compareAuthJwt;
+
+            if (!string.IsNullOrWhiteSpace(compareAuthJwt))
+            {
+                SetStatus(NeutralBrush, "Request detected. Opened the JWT tab with request context.");
+                await InspectJwtAsync();
+            }
+            else
+            {
+                SetStatus(WarningBrush, "⚠ Request detected, but no bearer token was found. Opened the JWT tab with context.");
+            }
+
+            return;
+        }
+
         if (_decryptService.CanReadJwt(input).CanRead)
         {
-            SelectedTabIndex = 1;
+            SelectedTabIndex = InspectTabIndex;
             JwtInspectInput = input;
+            JwtInspectContext = DefaultJwtInspectContext;
             SetStatus(NeutralBrush, "JWT detected. Opened the View Token tab.");
             await InspectJwtAsync();
             return;
@@ -473,36 +556,47 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         if (LooksLikeCookie(input))
         {
-            SelectedTabIndex = 0;
+            SelectedTabIndex = CookieTabIndex;
             CookieInput = input;
             SetStatus(NeutralBrush, "Cookie-like input detected. Opened the Decode Cookie tab.");
             return;
         }
 
-        if (_decryptService.LooksLikeEncryptedPayload(input))
+        if (TryExtractPayloadFromUrl(input, out var payloadFromUrl))
         {
-            SelectedTabIndex = 2;
-            PayloadInput = input;
-            SetStatus(NeutralBrush, "Encrypted payload detected. Opened the Decode Payload tab.");
+            SelectedTabIndex = PayloadTabIndex;
+            PayloadInput = payloadFromUrl;
+            SetStatus(NeutralBrush, "URL with ENC detected. Opened the Decode Payload tab and started decryption.");
+            await DecryptPayloadAsync();
             return;
         }
 
-        SelectedTabIndex = 0;
-        CookieInput = input;
-        SetStatus(WarningBrush, "⚠ Could not classify the input confidently. Opened the Decode Cookie tab.");
+        if (_decryptService.LooksLikeEncryptedPayload(input))
+        {
+            SelectedTabIndex = PayloadTabIndex;
+            PayloadInput = input;
+            SetStatus(NeutralBrush, "Encrypted payload detected. Opened the Decode Payload tab and started decryption.");
+            await DecryptPayloadAsync();
+            return;
+        }
+
+        SelectedTabIndex = RawInputTabIndex;
+        RawInput = input;
+        SetStatus(WarningBrush, "⚠ Could not classify the input confidently. Opened the Raw Input tab.");
     }
 
     public async Task DecryptCookieAsync()
     {
         if (!CanDecryptCookie)
         {
-            SetStatus(ErrorBrush, "❌ Cookie, fingerprint, and environment are required.");
+            SetStatus(ErrorBrush, $"❌ Cookie and environment are required, plus a fingerprint or {FingerprintEnvVar}.");
             return;
         }
 
         await RunBusyAsync(WorkflowAction.Cookie, async () =>
         {
-            var result = await _decryptService.InspectCookieAsync(CookieInput, SelectedEnvironment, Fingerprint);
+            var fingerprint = ResolveCookieFingerprint();
+            var result = await _decryptService.InspectCookieAsync(CookieInput, SelectedEnvironment, fingerprint);
             var jwt = _decryptService.InspectRawJwt(result.DecryptedJwt);
             _lastCookieJwt = result.DecryptedJwt;
             CookieOutput = PrettyJsonOrRaw(jwt.PayloadJson);
@@ -634,6 +728,42 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         });
     }
 
+    public async Task LoadHarAsync()
+    {
+        if (!CanLoadHar)
+        {
+            SetStatus(ErrorBrush, $"❌ HAR file path is required, plus an encryption key or {EncryptionEnvVar}.");
+            return;
+        }
+
+        await RunBusyAsync(WorkflowAction.Compare, async () =>
+        {
+            var harPath = DecryptService.NormalizeDroppedPath(CompareHarFilePath);
+            var encryptionKey = ResolveHarKey();
+            var harResult = _decryptService.InspectHar(harPath, SelectedEnvironment, encryptionKey);
+
+            CompareHarFilePath = harResult.HarFilePath;
+            CompareHarSummary = $"HAR loaded. Fingerprint resolved to {harResult.CookieDebug.Fingerprint}.";
+            CompareCookieJwt = harResult.CookieDebug.DecryptedJwt;
+            CompareAuthJwt = harResult.AuthorizationJwt;
+            Fingerprint = harResult.CookieDebug.Fingerprint;
+            _lastCookieJwt = harResult.CookieDebug.DecryptedJwt;
+            CookieOutput = PrettyJsonOrRaw(_decryptService.InspectRawJwt(harResult.CookieDebug.DecryptedJwt).PayloadJson);
+
+            if (string.IsNullOrWhiteSpace(harResult.AuthorizationJwt))
+            {
+                _allCompareRows = Array.Empty<CompareClaimRowViewModel>();
+                RefreshCompareRows();
+                CompareCookiePayload = PrettyJsonOrRaw(_decryptService.InspectRawJwt(harResult.CookieDebug.DecryptedJwt).PayloadJson);
+                CompareAuthPayloadEncrypted = DefaultComparePayloadJson;
+                SetStatus(WarningBrush, "⚠ HAR loaded and cookie decrypted, but no Authorization JWT was found.");
+                return;
+            }
+
+            await RunComparisonCoreAsync(CompareCookieJwt, CompareAuthJwt);
+        });
+    }
+
     public async Task CompareTokensAsync()
     {
         if (!CanCompareTokens)
@@ -644,37 +774,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         await RunBusyAsync(WorkflowAction.Compare, async () =>
         {
-            var result = await _decryptService.CompareAsync(
-                CompareCookieJwt,
-                CompareAuthJwt,
-                SelectedEnvironment.ToString(),
-                Fingerprint);
-
-            _allCompareRows = result.Differences
-                .Select(diff => new CompareClaimRowViewModel(diff))
-                .ToList();
-            RefreshCompareRows();
-
-            CompareCookiePayload = PrettyJsonOrRaw(result.CookiePayloadJson);
-            CompareAuthPayloadEncrypted = PrettyJsonOrRaw(result.AuthPayloadJson);
-            if (result.AuthPayloadWasAlreadyPlainText)
-            {
-                SetStatus(NeutralBrush, "ℹ Payload is already in plain text.");
-            }
-            else if (result.AuthPayloadDecryptionFailed)
-            {
-                SetStatus(ErrorBrush, "❌ Unable to decrypt auth payload. Check fingerprint and environment.");
-            }
-            else if (_allCompareRows.Any(row => row.Status != "Match"))
-            {
-                SetStatus(WarningBrush, "⚠ Comparison complete. Differences found.");
-            }
-            else
-            {
-                SetStatus(SuccessBrush, "✔ Comparison complete. All claims match.");
-            }
-
-            RaiseCommandState();
+            await RunComparisonCoreAsync(CompareCookieJwt, CompareAuthJwt);
         });
     }
 
@@ -797,6 +897,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         throw new ArgumentException($"An encryption key is required. Set {EncryptionEnvVar} or enter one manually.");
     }
 
+    private string ResolveHarKey()
+    {
+        var resolved = ResolveOptionalEncryptionKey(CompareHarEncryptionKey, value => CompareHarKeySource = value);
+        if (!string.IsNullOrWhiteSpace(resolved))
+        {
+            return resolved;
+        }
+
+        throw new ArgumentException($"An encryption key is required. Set {EncryptionEnvVar} or enter one manually.");
+    }
+
+    private string ResolveCookieFingerprint()
+    {
+        var resolved = ResolveOptionalFingerprint(Fingerprint, value => FingerprintSource = value);
+        if (!string.IsNullOrWhiteSpace(resolved))
+        {
+            return resolved;
+        }
+
+        throw new ArgumentException($"A fingerprint is required. Set {FingerprintEnvVar} or enter one manually.");
+    }
+
     private string? ResolveOptionalEncryptionKey(string manualValue, Action<string>? updateSource)
     {
         if (!string.IsNullOrWhiteSpace(manualValue))
@@ -805,7 +927,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return manualValue.Trim();
         }
 
-        var environmentValue = Environment.GetEnvironmentVariable(EncryptionEnvVar);
+        var environmentValue = GetEnvironmentValue(EncryptionEnvVar);
         if (!string.IsNullOrWhiteSpace(environmentValue))
         {
             updateSource?.Invoke($"Using {EncryptionEnvVar} from your environment.");
@@ -816,9 +938,384 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return null;
     }
 
+    private string? ResolveOptionalFingerprint(string manualValue, Action<string>? updateSource)
+    {
+        if (!string.IsNullOrWhiteSpace(manualValue))
+        {
+            updateSource?.Invoke("Using the fingerprint entered above.");
+            return manualValue.Trim();
+        }
+
+        var environmentValue = GetEnvironmentValue(FingerprintEnvVar);
+        if (!string.IsNullOrWhiteSpace(environmentValue))
+        {
+            updateSource?.Invoke($"Using {FingerprintEnvVar} from your environment.");
+            return environmentValue.Trim();
+        }
+
+        updateSource?.Invoke($"Leave blank to use {FingerprintEnvVar}.");
+        return null;
+    }
+
     private bool HasEnvironmentEncryptionKey()
     {
-        return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EncryptionEnvVar));
+        return !string.IsNullOrWhiteSpace(GetEnvironmentValue(EncryptionEnvVar));
+    }
+
+    private bool HasEnvironmentFingerprint()
+    {
+        return !string.IsNullOrWhiteSpace(GetEnvironmentValue(FingerprintEnvVar));
+    }
+
+    private string GetFingerprintEnvironmentMessage()
+    {
+        return HasEnvironmentFingerprint()
+            ? $"Using {FingerprintEnvVar} from your environment."
+            : $"Leave blank to use {FingerprintEnvVar}.";
+    }
+
+    private async Task RunComparisonCoreAsync(string cookieJwt, string authJwt)
+    {
+        var fingerprint = ResolveOptionalFingerprint(Fingerprint, value => FingerprintSource = value);
+        var result = await _decryptService.CompareAsync(
+            cookieJwt,
+            authJwt,
+            SelectedEnvironment.ToString(),
+            fingerprint ?? string.Empty);
+
+        _allCompareRows = result.Differences
+            .Select(diff => new CompareClaimRowViewModel(diff))
+            .ToList();
+        RefreshCompareRows();
+
+        CompareCookiePayload = PrettyJsonOrRaw(result.CookiePayloadJson);
+        CompareAuthPayloadEncrypted = PrettyJsonOrRaw(result.AuthPayloadJson);
+        if (result.AuthPayloadWasAlreadyPlainText)
+        {
+            SetStatus(NeutralBrush, "ℹ Payload is already in plain text.");
+        }
+        else if (result.AuthPayloadDecryptionFailed)
+        {
+            SetStatus(ErrorBrush, "❌ Unable to decrypt auth payload. Check fingerprint and environment.");
+        }
+        else if (_allCompareRows.Any(row => row.Status != "Match"))
+        {
+            SetStatus(WarningBrush, "⚠ Comparison complete. Differences found.");
+        }
+        else
+        {
+            SetStatus(SuccessBrush, "✔ Comparison complete. All claims match.");
+        }
+
+        RaiseCommandState();
+    }
+
+    private static bool TryExtractRequestInputs(string input, out string cookieValue, out string authJwt)
+    {
+        cookieValue = string.Empty;
+        authJwt = string.Empty;
+
+        var hasCookieHeader = TryExtractHeaderValue(input, "Cookie", out var cookieHeader);
+        var hasAuthorizationHeader = TryExtractHeaderValue(input, "Authorization", out var authorizationHeader);
+        var looksLikeRequest = hasCookieHeader ||
+                               hasAuthorizationHeader ||
+                               LooksLikeFetchRequest(input) ||
+                               LooksLikeCurlRequest(input);
+
+        if (!looksLikeRequest)
+        {
+            return false;
+        }
+
+        var extractedCookie = hasCookieHeader ? ExtractCookieValue(cookieHeader, "encinfo") : ExtractEncinfoFromInput(input);
+        var extractedToken = hasAuthorizationHeader ? ExtractBearerToken(authorizationHeader) : ExtractBearerTokenFromInput(input);
+
+        cookieValue = extractedCookie;
+        authJwt = extractedToken;
+        return !string.IsNullOrWhiteSpace(cookieValue) || !string.IsNullOrWhiteSpace(authJwt) || looksLikeRequest;
+    }
+
+    private static bool TryExtractPayloadFromUrl(string input, out string payloadValue)
+    {
+        payloadValue = string.Empty;
+        if (!Uri.TryCreate(input, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var query = uri.Query;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return false;
+        }
+
+        foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var equalsIndex = segment.IndexOf('=');
+            if (equalsIndex <= 0)
+            {
+                continue;
+            }
+
+            var name = segment[..equalsIndex];
+            if (!name.Equals("ENC", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            payloadValue = WebUtility.UrlDecode(segment[(equalsIndex + 1)..]);
+            return !string.IsNullOrWhiteSpace(payloadValue);
+        }
+
+        return false;
+    }
+
+    private static bool TryExtractHeaderValue(string input, string headerName, out string value)
+    {
+        value = string.Empty;
+        foreach (var rawLine in input.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = rawLine.Trim();
+            if (!line.StartsWith(headerName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var separatorIndex = line.IndexOf(':');
+            if (separatorIndex < 0)
+            {
+                continue;
+            }
+
+            value = line[(separatorIndex + 1)..].Trim();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+        }
+
+        foreach (var headerValue in ExtractCurlHeaderValues(input, headerName))
+        {
+            if (!string.IsNullOrWhiteSpace(headerValue))
+            {
+                value = headerValue;
+                return true;
+            }
+        }
+
+        foreach (var headerValue in ExtractFetchHeaderValues(input, headerName))
+        {
+            if (!string.IsNullOrWhiteSpace(headerValue))
+            {
+                value = headerValue;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> ExtractCurlHeaderValues(string input, string headerName)
+    {
+        const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+        var pattern = @"(?:^|\s)(?:-H|--header)\s+(?:\^?""(?<double>(?:\^""|\\""|[^""])*)\^?""|'(?<single>[^']*)')";
+
+        foreach (Match match in Regex.Matches(input, pattern, Options))
+        {
+            var candidate = match.Groups["double"].Success
+                ? match.Groups["double"].Value
+                : match.Groups["single"].Value;
+
+            candidate = candidate
+                .Replace("^\"", "\"", StringComparison.Ordinal)
+                .Replace("\\\"", "\"", StringComparison.Ordinal)
+                .Trim();
+
+            if (!candidate.StartsWith(headerName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var separatorIndex = candidate.IndexOf(':');
+            if (separatorIndex < 0)
+            {
+                continue;
+            }
+
+            yield return candidate[(separatorIndex + 1)..].Trim();
+        }
+    }
+
+    private static IEnumerable<string> ExtractFetchHeaderValues(string input, string headerName)
+    {
+        const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline;
+        var escapedHeaderName = Regex.Escape(headerName);
+        var pattern =
+            @"['""]" + escapedHeaderName + @"['""]\s*:\s*(?:""(?<double>(?:\\.|[^""])*)""|'(?<single>(?:\\.|[^'])*)')";
+
+        foreach (Match match in Regex.Matches(input, pattern, Options))
+        {
+            var candidate = match.Groups["double"].Success
+                ? match.Groups["double"].Value
+                : match.Groups["single"].Value;
+
+            candidate = Regex.Unescape(candidate).Trim();
+            if (!string.IsNullOrWhiteSpace(candidate))
+            {
+                yield return candidate;
+            }
+        }
+    }
+
+    public string CompareHarFilePath
+    {
+        get => _compareHarFilePath;
+        set
+        {
+            if (SetField(ref _compareHarFilePath, value))
+            {
+                RaiseCommandState();
+            }
+        }
+    }
+
+    public string CompareHarEncryptionKey
+    {
+        get => _compareHarEncryptionKey;
+        set
+        {
+            if (SetField(ref _compareHarEncryptionKey, value))
+            {
+                CompareHarKeySource = string.IsNullOrWhiteSpace(value)
+                    ? (HasEnvironmentEncryptionKey() ? $"Using {EncryptionEnvVar} from your environment." : $"Leave blank to use {EncryptionEnvVar}.")
+                    : "Using the key entered above.";
+                RaiseCommandState();
+            }
+        }
+    }
+
+    public string CompareHarKeySource
+    {
+        get => _compareHarKeySource;
+        private set => SetField(ref _compareHarKeySource, value);
+    }
+
+    public string CompareHarSummary
+    {
+        get => _compareHarSummary;
+        private set => SetField(ref _compareHarSummary, value);
+    }
+
+    private static bool LooksLikeFetchRequest(string input)
+    {
+        return input.Contains("fetch(", StringComparison.OrdinalIgnoreCase) &&
+               input.Contains("headers", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool LooksLikeCurlRequest(string input)
+    {
+        return input.Contains("curl", StringComparison.OrdinalIgnoreCase) &&
+               (input.Contains("-H", StringComparison.Ordinal) ||
+                input.Contains("--header", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsHarInput(string input)
+    {
+        return !string.IsNullOrWhiteSpace(input) &&
+               File.Exists(input) &&
+               Path.GetExtension(input).Equals(".har", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildRequestContext(string input, string cookieValue, string authJwt)
+    {
+        var source = LooksLikeFetchRequest(input)
+            ? "fetch request"
+            : LooksLikeCurlRequest(input)
+                ? "cURL request"
+                : "request headers";
+
+        var authStatus = string.IsNullOrWhiteSpace(authJwt)
+            ? "No bearer token was found."
+            : "Bearer token extracted and loaded into this tab.";
+        var cookieStatus = string.IsNullOrWhiteSpace(cookieValue)
+            ? "No encinfo cookie was present in the pasted text."
+            : "An encinfo cookie was also extracted for follow-up comparison.";
+
+        return $"{source} detected. {authStatus} {cookieStatus}";
+    }
+
+    private static string ExtractBearerToken(string headerValue)
+    {
+        const string bearerPrefix = "Bearer ";
+        return headerValue.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
+            ? headerValue[bearerPrefix.Length..].Trim()
+            : string.Empty;
+    }
+
+    private static string ExtractBearerTokenFromInput(string input)
+    {
+        var match = Regex.Match(
+            input,
+            @"Bearer\s+(?<token>[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        return match.Success
+            ? match.Groups["token"].Value.Trim()
+            : string.Empty;
+    }
+
+    private static string ExtractEncinfoFromInput(string input)
+    {
+        var match = Regex.Match(
+            input,
+            @"encinfo=(?<cookie>[^;""'\s]+)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        return match.Success
+            ? match.Groups["cookie"].Value.Trim()
+            : string.Empty;
+    }
+
+    private static string ExtractCookieValue(string headerValue, string cookieName)
+    {
+        foreach (var segment in headerValue.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var equalsIndex = segment.IndexOf('=');
+            if (equalsIndex <= 0)
+            {
+                continue;
+            }
+
+            var name = segment[..equalsIndex].Trim();
+            if (!name.Equals(cookieName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return segment[(equalsIndex + 1)..].Trim();
+        }
+
+        return string.Empty;
+    }
+
+    private static string? GetEnvironmentValue(string variableName)
+    {
+        var processValue = Environment.GetEnvironmentVariable(variableName);
+        if (!string.IsNullOrWhiteSpace(processValue))
+        {
+            return processValue;
+        }
+
+        var userValue = Environment.GetEnvironmentVariable(variableName, EnvironmentVariableTarget.User);
+        if (!string.IsNullOrWhiteSpace(userValue))
+        {
+            return userValue;
+        }
+
+        var machineValue = Environment.GetEnvironmentVariable(variableName, EnvironmentVariableTarget.Machine);
+        return string.IsNullOrWhiteSpace(machineValue)
+            ? null
+            : machineValue;
     }
 
     private static bool LooksLikeCookie(string input)

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace DecryptTool.UI.Controls;
@@ -39,6 +40,9 @@ public partial class FloatingLabelTextBox : UserControl
 
     public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
         DependencyProperty.Register(nameof(HorizontalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(FloatingLabelTextBox), new PropertyMetadata(ScrollBarVisibility.Disabled));
+
+    public static readonly DependencyProperty SelectAllOnFocusProperty =
+        DependencyProperty.Register(nameof(SelectAllOnFocus), typeof(bool), typeof(FloatingLabelTextBox), new PropertyMetadata(false));
 
     public FloatingLabelTextBox()
     {
@@ -106,16 +110,41 @@ public partial class FloatingLabelTextBox : UserControl
         set => SetValue(HorizontalScrollBarVisibilityProperty, value);
     }
 
+    public bool SelectAllOnFocus
+    {
+        get => (bool)GetValue(SelectAllOnFocusProperty);
+        set => SetValue(SelectAllOnFocusProperty, value);
+    }
+
     private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         ((FloatingLabelTextBox)d).UpdateVisualState();
     }
 
-    private void InputBox_OnGotFocus(object sender, RoutedEventArgs e) => UpdateVisualState();
+    private void InputBox_OnGotFocus(object sender, RoutedEventArgs e)
+    {
+        if (SelectAllOnFocus)
+        {
+            InputBox.SelectAll();
+        }
+
+        UpdateVisualState();
+    }
 
     private void InputBox_OnLostFocus(object sender, RoutedEventArgs e) => UpdateVisualState();
 
     private void InputBox_OnTextChanged(object sender, TextChangedEventArgs e) => UpdateVisualState();
+
+    private void InputBox_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!SelectAllOnFocus || InputBox.IsKeyboardFocusWithin)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        InputBox.Focus();
+    }
 
     private void UpdateVisualState()
     {

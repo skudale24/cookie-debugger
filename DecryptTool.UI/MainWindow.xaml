@@ -67,6 +67,32 @@
             <Setter Property="FontSize" Value="15" />
             <Setter Property="ContentTemplate" Value="{StaticResource IconButtonContentTemplate}" />
         </Style>
+        <Style x:Key="InfoBadge" TargetType="Border">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Background" Value="#DBEAFE" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTipService.ShowDuration" Value="60000" />
+        </Style>
+        <Style x:Key="InfoBadgeText" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontFamily" Value="Segoe UI Symbol" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#1D4ED8" />
+            <Setter Property="Text" Value="i" />
+        </Style>
+        <Style x:Key="GuidanceToolTip" TargetType="ToolTip">
+            <Setter Property="MaxWidth" Value="380" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#BFDBFE" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Foreground" Value="#0F172A" />
+            <Setter Property="HasDropShadow" Value="True" />
+        </Style>
     </Window.Resources>
 
     <Grid Margin="22">
@@ -129,18 +155,73 @@
 
         <Border Grid.Row="2"
                 Style="{StaticResource CardStyle}"
-                Padding="18">
+                Padding="18"
+                AllowDrop="True"
+                PreviewDragOver="AutoDetectDropTarget_PreviewDragOver"
+                Drop="AutoDetectDropTarget_Drop">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="18" />
                     <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="170" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Style="{StaticResource SectionTitle}"
-                               Text="Auto-detect: paste a JWT, cookie, or encrypted payload." />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource SectionTitle}"
+                                   VerticalAlignment="Center"
+                                   Text="Auto-detect: paste a token, request, URL, payload, or drop a HAR file." />
+                        <Border Style="{StaticResource InfoBadge}"
+                                Margin="10,0,0,0">
+                            <Border.ToolTip>
+                                <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                    <StackPanel>
+                                        <TextBlock FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#0F172A"
+                                                   Text="Use the easiest source you already have" />
+                                        <Border Margin="0,10,0,0"
+                                                Padding="10"
+                                                CornerRadius="8"
+                                                Background="#EFF6FF">
+                                            <TextBlock TextWrapping="Wrap"
+                                                       Foreground="#1E3A8A">
+                                                <Run FontWeight="SemiBold" Text="JWT:" />
+                                                <Run Text=" paste the full fetch or cURL request instead of hunting for the bearer token in headers." />
+                                            </TextBlock>
+                                        </Border>
+                                        <Border Margin="0,8,0,0"
+                                                Padding="10"
+                                                CornerRadius="8"
+                                                Background="#F0FDF4">
+                                            <TextBlock TextWrapping="Wrap"
+                                                       Foreground="#166534">
+                                                <Run FontWeight="SemiBold" Text="Payload:" />
+                                                <Run Text=" paste the page or API URL that already contains the " />
+                                                <Run FontWeight="SemiBold" Text="ENC" />
+                                                <Run Text=" query value." />
+                                            </TextBlock>
+                                        </Border>
+                                        <Border Margin="0,8,0,0"
+                                                Padding="10"
+                                                CornerRadius="8"
+                                                Background="#FFF7ED">
+                                            <TextBlock TextWrapping="Wrap"
+                                                       Foreground="#9A3412">
+                                                <Run FontWeight="SemiBold" Text="Compare:" />
+                                                <Run Text=" drop a HAR file when you want the app to extract both sides for you." />
+                                            </TextBlock>
+                                        </Border>
+                                    </StackPanel>
+                                </ToolTip>
+                            </Border.ToolTip>
+                            <TextBlock Style="{StaticResource InfoBadgeText}" />
+                        </Border>
+                    </StackPanel>
                     <controls:FloatingLabelTextBox Height="96"
+                                                   SelectAllOnFocus="True"
                                                    Label="Paste or drop a value"
                                                    AcceptsReturn="True"
                                                    TextWrapping="Wrap"
@@ -153,6 +234,12 @@
                         Style="{StaticResource PrimaryButton}"
                         Click="AutoDetectButton_Click"
                         Content="Analyze Input" />
+
+                <Button Grid.Column="4"
+                        VerticalAlignment="Bottom"
+                        Style="{StaticResource SecondaryButton}"
+                        Click="BrowseHarButton_Click"
+                        Content="Browse HAR" />
             </Grid>
         </Border>
 
@@ -187,6 +274,28 @@
                                 <controls:FloatingLabelTextBox Height="64"
                                                                Label="Fingerprint"
                                                                Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Margin="2,8,0,0"
+                                            Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource BodyText}"
+                                               FontSize="13"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding FingerprintSource}" />
+                                    <Border Style="{StaticResource InfoBadge}"
+                                            Margin="8,0,0,0">
+                                        <Border.ToolTip>
+                                            <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                                <TextBlock TextWrapping="Wrap">
+                                                    <Run FontWeight="SemiBold" Text="Cookie tip:" />
+                                                    <Run Text=" leave Fingerprint blank to use " />
+                                                    <Run FontWeight="SemiBold" Text="TOK_COOKIE_FINGERPRINT" />
+                                                    <Run Text=". This tab is best when you already have just the encrypted cookie value." />
+                                                </TextBlock>
+                                            </ToolTip>
+                                        </Border.ToolTip>
+                                        <TextBlock Style="{StaticResource InfoBadgeText}" />
+                                    </Border>
+                                </StackPanel>
                                 <controls:FloatingLabelComboBox Height="64"
                                                                 Label="Environment"
                                                                 ItemsSource="{Binding Environments}"
@@ -244,11 +353,26 @@
                                     <controls:FloatingLabelTextBox Height="64"
                                                                    Label="Encryption Key"
                                                                    Text="{Binding JwtInspectEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Margin="2,8,0,0"
-                                               Style="{StaticResource BodyText}"
-                                               FontSize="13"
-                                               Foreground="#64748B"
-                                               Text="{Binding JwtInspectKeySource}" />
+                                    <StackPanel Margin="2,8,0,0"
+                                                Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource BodyText}"
+                                                   FontSize="13"
+                                                   Foreground="#64748B"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding JwtInspectKeySource}" />
+                                        <Border Style="{StaticResource InfoBadge}"
+                                                Margin="8,0,0,0">
+                                            <Border.ToolTip>
+                                                <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                                    <TextBlock TextWrapping="Wrap">
+                                                        <Run FontWeight="SemiBold" Text="Inspect tip:" />
+                                                        <Run Text=" paste the full fetch/cURL request or an Authorization header and Tok will pull the bearer token into this tab for you." />
+                                                    </TextBlock>
+                                                </ToolTip>
+                                            </Border.ToolTip>
+                                            <TextBlock Style="{StaticResource InfoBadgeText}" />
+                                        </Border>
+                                    </StackPanel>
                                 </StackPanel>
                             </Grid>
 
@@ -275,6 +399,14 @@
                                         Click="SendInspectToCompareButton_Click"
                                         Content="Send to Compare" />
 
+                                <TextBlock Grid.Column="3"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"
+                                           Style="{StaticResource BodyText}"
+                                           Foreground="#5B6D68"
+                                           Text="{Binding JwtInspectExpiryDetail}" />
+
                                 <Border Grid.Column="5"
                                         Style="{StaticResource StatusPill}"
                                         Background="{Binding JwtInspectExpiryBadgeBrush}"
@@ -300,9 +432,6 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Row="0" Grid.Column="0">
-                                    <TextBlock Style="{StaticResource BodyText}"
-                                               Foreground="#5B6D68"
-                                               Text="{Binding JwtInspectExpiryDetail}" />
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
                                     <controls:JsonViewer Margin="0,10,0,0"
                                                          MinHeight="240"
@@ -358,11 +487,30 @@
                                 <controls:FloatingLabelTextBox Height="64"
                                                                Label="Encryption Key"
                                                                Text="{Binding PayloadEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Margin="2,8,0,0"
-                                           Style="{StaticResource BodyText}"
-                                           FontSize="13"
-                                           Foreground="#64748B"
-                                           Text="{Binding PayloadKeySource}" />
+                                <StackPanel Margin="2,8,0,0"
+                                            Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource BodyText}"
+                                               FontSize="13"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding PayloadKeySource}" />
+                                    <Border Style="{StaticResource InfoBadge}"
+                                            Margin="8,0,0,0">
+                                        <Border.ToolTip>
+                                            <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                                <TextBlock TextWrapping="Wrap">
+                                                    <Run FontWeight="SemiBold" Text="Payload shortcut:" />
+                                                    <Run Text=" paste the full URL containing " />
+                                                    <Run FontWeight="SemiBold" Text="ENC" />
+                                                    <Run Text=" into Analyze Input instead of manually extracting the encrypted value. Leave Encryption Key blank to use " />
+                                                    <Run FontWeight="SemiBold" Text="TOK_ENCRYPTION_KEY" />
+                                                    <Run Text="." />
+                                                </TextBlock>
+                                            </ToolTip>
+                                        </Border.ToolTip>
+                                        <TextBlock Style="{StaticResource InfoBadgeText}" />
+                                    </Border>
+                                </StackPanel>
                                 <Button Margin="0,18,0,0"
                                         Style="{StaticResource PrimaryButton}"
                                         IsEnabled="{Binding CanDecryptPayload}"
@@ -406,6 +554,8 @@
                                 <RowDefinition Height="16" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="16" />
                                 <RowDefinition Height="Auto" />
@@ -417,6 +567,61 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Row="0" Grid.Column="0">
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Load from HAR" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Style="{StaticResource BodyText}"
+                                           Foreground="#5B6D68"
+                                           Text="Browse to a HAR file or drop it into Analyze Input to extract the auth JWT and decrypted cookie automatically." />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                <controls:FloatingLabelTextBox Height="64"
+                                                               Label="HAR File Path"
+                                                               Text="{Binding CompareHarFilePath, UpdateSourceTrigger=PropertyChanged}" />
+                                <controls:FloatingLabelTextBox Height="64"
+                                                               Label="HAR Encryption Key"
+                                                               Text="{Binding CompareHarEncryptionKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Margin="2,8,0,0"
+                                            Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource BodyText}"
+                                               FontSize="13"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding CompareHarKeySource}" />
+                                    <Border Style="{StaticResource InfoBadge}"
+                                            Margin="8,0,0,0">
+                                        <Border.ToolTip>
+                                            <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                                <TextBlock TextWrapping="Wrap">
+                                                    <Run FontWeight="SemiBold" Text="HAR workflow:" />
+                                                    <Run Text=" Tok uses the HAR encryption key to resolve the fingerprint, decrypt the cookie, extract the auth JWT, and prepare the comparison in one step." />
+                                                </TextBlock>
+                                            </ToolTip>
+                                        </Border.ToolTip>
+                                        <TextBlock Style="{StaticResource InfoBadgeText}" />
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Margin="0,18,0,0"
+                                            Orientation="Horizontal">
+                                    <Button MinWidth="132"
+                                            Margin="0,0,12,0"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="BrowseHarFromCompareButton_Click"
+                                            Content="Browse HAR" />
+                                    <Button MinWidth="132"
+                                            Style="{StaticResource PrimaryButton}"
+                                            IsEnabled="{Binding CanLoadHar}"
+                                            Click="LoadHarButton_Click"
+                                            Content="Load HAR" />
+                                </StackPanel>
+                                <TextBlock Margin="2,10,0,0"
+                                           Style="{StaticResource BodyText}"
+                                           FontSize="13"
+                                           Foreground="#64748B"
+                                           Text="{Binding CompareHarSummary}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="0">
                                 <controls:FloatingLabelTextBox Height="110"
                                                                Label="Cookie JWT / Encrypted Cookie"
                                                                AcceptsReturn="True"
@@ -432,10 +637,15 @@
                                                                Text="{Binding CompareAuthJwt, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
-                            <StackPanel Grid.Row="0" Grid.Column="2">
+                            <StackPanel Grid.Row="2" Grid.Column="2">
                                 <controls:FloatingLabelTextBox Height="64"
                                                                Label="Fingerprint"
                                                                Text="{Binding Fingerprint, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="2,8,0,0"
+                                           Style="{StaticResource BodyText}"
+                                           FontSize="13"
+                                           Foreground="#64748B"
+                                           Text="{Binding FingerprintSource}" />
                                 <controls:FloatingLabelComboBox Height="64"
                                                                 Label="Environment"
                                                                 ItemsSource="{Binding Environments}"
@@ -447,13 +657,13 @@
                                         Content="{Binding CompareActionText}" />
                             </StackPanel>
 
-                            <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                            <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
                                 <CheckBox HorizontalAlignment="Right"
                                           IsChecked="{Binding ShowDifferencesOnly}"
                                           Content="Show Differences Only" />
                             </Grid>
 
-                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Claim Comparison" />
                                 <DataGrid Margin="0,10,0,0"
                                           MinHeight="280"
@@ -468,12 +678,12 @@
                                                             Binding="{Binding CookieValue}"
                                                             Width="1.18*"
                                                             ElementStyle="{StaticResource CompareGridText}" />
-                                        <DataGridTextColumn Header="Auth Raw"
-                                                            Binding="{Binding AuthEncryptedValue}"
-                                                            Width="1.18*"
-                                                            ElementStyle="{StaticResource CompareGridText}" />
                                         <DataGridTextColumn Header="Auth Clear"
                                                             Binding="{Binding AuthValue}"
+                                                            Width="1.18*"
+                                                            ElementStyle="{StaticResource CompareGridText}" />
+                                        <DataGridTextColumn Header="Auth Raw"
+                                                            Binding="{Binding AuthEncryptedValue}"
                                                             Width="1.18*"
                                                             ElementStyle="{StaticResource CompareGridText}" />
                                         <DataGridTemplateColumn Header="Status"
@@ -496,7 +706,7 @@
                                 </DataGrid>
                             </StackPanel>
 
-                            <Expander Grid.Row="6"
+                            <Expander Grid.Row="8"
                                       Grid.Column="0"
                                       Grid.ColumnSpan="3"
                                       Margin="0,4,0,0"
@@ -596,11 +806,26 @@
                                                                InputFontFamily="Consolas"
                                                                InputFontSize="12.5"
                                                                Text="{Binding JwtValidateKey, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Margin="2,8,0,0"
-                                           Style="{StaticResource BodyText}"
-                                           FontSize="13"
-                                           Foreground="#64748B"
-                                           Text="{Binding JwtValidateKeySource}" />
+                                <StackPanel Margin="2,8,0,0"
+                                            Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource BodyText}"
+                                               FontSize="13"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding JwtValidateKeySource}" />
+                                    <Border Style="{StaticResource InfoBadge}"
+                                            Margin="8,0,0,0">
+                                        <Border.ToolTip>
+                                            <ToolTip Style="{StaticResource GuidanceToolTip}">
+                                                <TextBlock TextWrapping="Wrap">
+                                                    <Run FontWeight="SemiBold" Text="Validation note:" />
+                                                    <Run Text=" the signing key is always entered manually on this tab. Unlike cookie fingerprints and payload keys, there is no env-var fallback here." />
+                                                </TextBlock>
+                                            </ToolTip>
+                                        </Border.ToolTip>
+                                        <TextBlock Style="{StaticResource InfoBadgeText}" />
+                                    </Border>
+                                </StackPanel>
                                 <Button Margin="0,18,0,0"
                                         Style="{StaticResource PrimaryButton}"
                                         IsEnabled="{Binding CanValidateJwt}"
@@ -625,6 +850,27 @@
                                          IsReadOnly="True"
                                          Text="{Binding JwtValidateSummary, Mode=OneWay}" />
                             </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Raw Input">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Style="{StaticResource SectionTitle}"
+                                       Text="Raw input that could not be classified" />
+
+                            <TextBox Grid.Row="2"
+                                     MinHeight="420"
+                                     Style="{StaticResource CodeBox}"
+                                     IsReadOnly="True"
+                                     Text="{Binding RawInput, Mode=OneWay}" />
                         </Grid>
                     </ScrollViewer>
                 </TabItem>
