@@ -395,6 +395,10 @@
                         <Grid Margin="20">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.2*" />
@@ -409,19 +413,6 @@
                                                                TextWrapping="Wrap"
                                                                VerticalScrollBarVisibility="Auto"
                                                                Text="{Binding CookieInput, UpdateSourceTrigger=PropertyChanged}" />
-                                <controls:FloatingLabelTextBox Height="120"
-                                                               Label="Extracted JWT"
-                                                               AcceptsReturn="True"
-                                                               TextWrapping="Wrap"
-                                                               VerticalScrollBarVisibility="Auto"
-                                                               IsReadOnly="True"
-                                                               Text="{Binding CookieExtractedJwt, Mode=OneWay}" />
-                                <StackPanel Margin="0,14,0,0">
-                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
-                                    <controls:JsonViewer Margin="0,10,0,0"
-                                                         MinHeight="180"
-                                                         JsonText="{Binding CookieHeaderJson, Mode=OneWay}" />
-                                </StackPanel>
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2">
@@ -454,40 +445,83 @@
                                                                 Label="Environment"
                                                                 ItemsSource="{Binding Environments}"
                                                                 SelectedItem="{Binding SelectedEnvironment}" />
-                                <Button Margin="0,18,0,0"
+                            </StackPanel>
+
+                            <Grid Grid.Row="2"
+                                  Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button Grid.Column="0"
                                         Style="{StaticResource PrimaryButton}"
                                         IsEnabled="{Binding CanDecryptCookie}"
                                         Click="CookieDecryptButton_Click"
                                         Content="{Binding CookieActionText}" />
-                                <Button Margin="0,12,0,0"
+                                <Button Grid.Column="2"
                                         Style="{StaticResource SecondaryButton}"
                                         IsEnabled="{Binding CanSendCookieToCompare}"
                                         Click="SendCookieToCompareButton_Click"
                                         Content="Compare with Auth Token" />
-                                <TextBlock Margin="0,18,0,0"
-                                           Style="{StaticResource SectionTitle}"
-                                           Text="Cookie Claims" />
-                                <DataGrid Margin="0,10,0,0"
-                                          MinHeight="420"
-                                          AutoGenerateColumns="False"
-                                          ItemsSource="{Binding CookieClaimRows}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Claim"
-                                                            Binding="{Binding Claim}"
-                                                            Width="0.95*"
-                                                            ElementStyle="{StaticResource CompareGridText}" />
-                                        <DataGridTemplateColumn Header="Cookie"
-                                                                Width="1.45*">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <TextBlock Style="{StaticResource CookieClaimExpText}"
-                                                               Text="{Binding Value}" />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="4"
+                                  Grid.ColumnSpan="3">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="1*" />
+                                </Grid.ColumnDefinitions>
+
+                                <controls:FloatingLabelTextBox Grid.Row="0"
+                                                               Grid.ColumnSpan="3"
+                                                               Height="120"
+                                                               Label="Extracted JWT"
+                                                               AcceptsReturn="True"
+                                                               TextWrapping="Wrap"
+                                                               VerticalScrollBarVisibility="Auto"
+                                                               IsReadOnly="True"
+                                                               Text="{Binding CookieExtractedJwt, Mode=OneWay}" />
+
+                                <StackPanel Grid.Row="2" Grid.Column="0">
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Header" />
+                                    <controls:JsonViewer Margin="0,10,0,0"
+                                                         MinHeight="180"
+                                                         JsonText="{Binding CookieHeaderJson, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="2">
+                                    <TextBlock Style="{StaticResource SectionTitle}"
+                                               Text="Cookie Claims" />
+                                    <DataGrid Margin="0,10,0,0"
+                                              MinHeight="420"
+                                              AutoGenerateColumns="False"
+                                              ItemsSource="{Binding CookieClaimRows}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Claim"
+                                                                Binding="{Binding Claim}"
+                                                                Width="0.95*"
+                                                                ElementStyle="{StaticResource CompareGridText}" />
+                                            <DataGridTemplateColumn Header="Cookie"
+                                                                    Width="1.45*">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Style="{StaticResource CookieClaimExpText}"
+                                                                   Text="{Binding Value}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </ScrollViewer>
                 </TabItem>
@@ -581,9 +615,9 @@
 
                             <Grid Grid.Row="4">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="0.72*" />
+                                    <ColumnDefinition Width="0.56*" />
                                     <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="1*" />
+                                    <ColumnDefinition Width="1.16*" />
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0">
