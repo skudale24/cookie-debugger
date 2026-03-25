@@ -8,8 +8,21 @@ public sealed class UserStateStore
 {
     private readonly string _stateFilePath;
 
-    public UserStateStore()
+    public UserStateStore(string? stateFilePath = null)
     {
+        if (!string.IsNullOrWhiteSpace(stateFilePath))
+        {
+            var fullPath = Path.GetFullPath(stateFilePath);
+            var directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            _stateFilePath = fullPath;
+            return;
+        }
+
         var appDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "DecryptTool");

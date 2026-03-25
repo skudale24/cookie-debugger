@@ -1305,6 +1305,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             value = line[(separatorIndex + 1)..].Trim();
             if (!string.IsNullOrWhiteSpace(value))
             {
+                value = NormalizeExtractedHeaderValue(value);
                 return true;
             }
         }
@@ -1313,7 +1314,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (!string.IsNullOrWhiteSpace(headerValue))
             {
-                value = headerValue;
+                value = NormalizeExtractedHeaderValue(headerValue);
                 return true;
             }
         }
@@ -1322,7 +1323,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (!string.IsNullOrWhiteSpace(headerValue))
             {
-                value = headerValue;
+                value = NormalizeExtractedHeaderValue(headerValue);
                 return true;
             }
         }
@@ -1333,18 +1334,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private static IEnumerable<string> ExtractCurlHeaderValues(string input, string headerName)
     {
         const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
-        var pattern = @"(?:^|\s)(?:-H|--header)\s+(?:\^?""(?<double>(?:\^""|\\""|[^""])*)\^?""|'(?<single>[^']*)')";
+        var pattern = @"(?:^|\s)(?:-H|--header)\s+(?:\^""(?<cmd>.*?)\^""|""(?<double>(?:\\.|[^""])*)""|'(?<single>[^']*)')";
 
         foreach (Match match in Regex.Matches(input, pattern, Options))
         {
-            var candidate = match.Groups["double"].Success
+            var candidate = match.Groups["cmd"].Success
+                ? match.Groups["cmd"].Value
+                : match.Groups["double"].Success
                 ? match.Groups["double"].Value
                 : match.Groups["single"].Value;
 
             candidate = candidate
-                .Replace("^\"", "\"", StringComparison.Ordinal)
                 .Replace("\\\"", "\"", StringComparison.Ordinal)
                 .Trim();
+            if (candidate.EndsWith("^", StringComparison.Ordinal))
+            {
+                candidate = candidate[..^1].TrimEnd();
+            }
 
             if (!candidate.StartsWith(headerName, StringComparison.OrdinalIgnoreCase))
             {
@@ -1380,6 +1386,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 yield return candidate;
             }
         }
+    }
+
+    private static string NormalizeExtractedHeaderValue(string value)
+    {
+        var normalized = value.Trim();
+        return normalized.EndsWith("^", StringComparison.Ordinal)
+            ? normalized[..^1].TrimEnd()
+            : normalized;
     }
 
     public string CompareHarFilePath
@@ -1503,7 +1517,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         return match.Success
-            ? match.Groups["cookie"].Value.Trim()
+            ? NormalizeExtractedHeaderValue(match.Groups["cookie"].Value)
             : string.Empty;
     }
 

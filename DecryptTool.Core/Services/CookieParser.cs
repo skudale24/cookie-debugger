@@ -102,7 +102,7 @@ public sealed class CookieParser
         try
         {
             var payloadBytes = Convert.FromBase64String(candidate);
-            return payloadBytes.Length >= 16;
+            return payloadBytes.Length >= 16 && payloadBytes.Length % 16 == 0;
         }
         catch (FormatException)
         {
