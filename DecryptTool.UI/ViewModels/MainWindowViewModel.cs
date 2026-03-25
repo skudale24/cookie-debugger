@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -690,7 +691,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await RunBusyAsync(WorkflowAction.Cookie, async () =>
         {
             var fingerprint = ResolveCookieFingerprint();
-            var result = await _decryptService.InspectCookieAsync(CookieInput, SelectedEnvironment, fingerprint);
+            CookieDebugResult result;
+            try
+            {
+                result = await _decryptService.InspectCookieAsync(CookieInput, SelectedEnvironment, fingerprint);
+            }
+            catch (Exception ex) when (TryHandleCookieDecryptException(ex))
+            {
+                return;
+            }
+
             var jwt = _decryptService.InspectRawJwt(result.DecryptedJwt);
             _lastCookieJwt = result.DecryptedJwt;
             CookieOutput = PrettyJsonOrRaw(jwt.PayloadJson);
@@ -823,7 +833,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await RunBusyAsync(WorkflowAction.Payload, async () =>
         {
             var encryptionKey = ResolvePayloadKey();
-            var result = await Task.Run(() => _decryptService.DecryptPayload(PayloadInput, encryptionKey));
+            string result;
+            try
+            {
+                result = await Task.Run(() => _decryptService.DecryptPayload(PayloadInput, encryptionKey));
+            }
+            catch (Exception ex) when (TryHandlePayloadDecryptException(ex))
+            {
+                return;
+            }
+
             PayloadOutput = PrettyJsonOrRaw(result);
             SetStatus(SuccessBrush, "✔ Decrypted successfully.");
         }, GetPayloadBusyStatus(PayloadInput));
@@ -1595,6 +1614,96 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             return trimmed;
         }
+    }
+
+    private bool TryHandleCookieDecryptException(Exception ex)
+    {
+        if (IsInvalidCookieFormatException(ex))
+        {
+            SetStatus(ErrorBrush, "❌ Cookie format is invalid. Paste the full encinfo cookie value or a cookie string that contains |#**#|.");
+            return true;
+        }
+
+        if (IsCookieDecryptCredentialException(ex))
+        {
+            SetStatus(ErrorBrush, "❌ Cookie decryption failed. Check the fingerprint and selected environment/passphrase.");
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryHandlePayloadDecryptException(Exception ex)
+    {
+        if (IsInvalidPayloadFormatException(ex))
+        {
+            SetStatus(ErrorBrush, "❌ ENC format is invalid. Paste the full ENC value or URL and make sure it is complete.");
+            return true;
+        }
+
+        if (IsPayloadDecryptCredentialException(ex))
+        {
+            SetStatus(ErrorBrush, "❌ ENC decryption failed. Check the encryption key.");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsInvalidCookieFormatException(Exception ex)
+    {
+        if (ex is FormatException)
+        {
+            return true;
+        }
+
+        if (ex is CryptographicException cryptographicException &&
+            cryptographicException.Message.Contains("too short", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (ex is not ArgumentException argumentException)
+        {
+            return false;
+        }
+
+        return argumentException.Message.Contains("expected delimiter", StringComparison.OrdinalIgnoreCase) ||
+               argumentException.Message.Contains("recognized encrypted payload", StringComparison.OrdinalIgnoreCase) ||
+               argumentException.Message.Contains("Encrypted JWT portion was empty", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCookieDecryptCredentialException(Exception ex)
+    {
+        if (ex is CryptographicException)
+        {
+            return true;
+        }
+
+        return ex is ArgumentException argumentException &&
+               argumentException.Message.Contains("Value is not a valid JWT", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsInvalidPayloadFormatException(Exception ex)
+    {
+        if (ex is FormatException)
+        {
+            return true;
+        }
+
+        if (ex is CryptographicException cryptographicException &&
+            cryptographicException.Message.Contains("complete block", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return ex is ArgumentException argumentException &&
+               argumentException.Message.Contains("Encrypted payload is required", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPayloadDecryptCredentialException(Exception ex)
+    {
+        return ex is CryptographicException;
     }
 
     private static bool LooksLikeJson(string value)

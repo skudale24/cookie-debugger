@@ -64,6 +64,10 @@ fetch("https://example.test/api/check", {
             {
                 ("Encrypted cookie auto-detect", () => VerifyEncryptedCookieAsync(decryptService, tempRoot, encryptedCookieInput, jwt)),
                 ("URL-encoded encrypted cookie auto-detect", () => VerifyEncryptedCookieAsync(decryptService, tempRoot, urlEncodedEncryptedCookieInput, jwt)),
+                ("Invalid cookie format status", () => VerifyInvalidCookieFormatStatusAsync(decryptService, tempRoot)),
+                ("Incorrect fingerprint status", () => VerifyIncorrectFingerprintStatusAsync(decryptService, tempRoot, encryptedCookieInput)),
+                ("Invalid ENC format status", () => VerifyInvalidEncFormatStatusAsync(decryptService, tempRoot)),
+                ("Incorrect ENC key status", () => VerifyIncorrectEncKeyStatusAsync(decryptService, tempRoot, encPayload)),
                 ("cURL (bash) JWT auto-detect", () => VerifyRequestAutoDetectAsync(decryptService, tempRoot, curlBash, jwt, encryptedCookieInput)),
                 ("cURL (cmd) JWT auto-detect", () => VerifyRequestAutoDetectAsync(decryptService, tempRoot, curlCmd, jwt, encryptedCookieInput)),
                 ("fetch JWT auto-detect", () => VerifyRequestAutoDetectAsync(decryptService, tempRoot, fetchInput, jwt, encryptedCookieInput)),
@@ -173,6 +177,46 @@ fetch("https://example.test/api/check", {
         Assert(string.Equals(viewModel.CompareCookieJwt, expectedJwt, StringComparison.Ordinal), "HAR auto-detect did not populate the compare cookie JWT.");
         Assert(string.Equals(viewModel.CompareAuthJwt, expectedJwt, StringComparison.Ordinal), "HAR auto-detect did not populate the compare JWT.");
         Assert(viewModel.CompareRows.Count > 0, "HAR auto-detect did not populate comparison rows.");
+    }
+
+    private static async Task VerifyInvalidCookieFormatStatusAsync(DecryptService decryptService, string tempRoot)
+    {
+        var viewModel = CreateViewModel(decryptService, tempRoot, "invalid-cookie");
+        viewModel.Fingerprint = Fingerprint;
+        viewModel.CookieInput = "not-a-valid-cookie";
+        await viewModel.DecryptCookieAsync();
+
+        Assert(viewModel.StatusText.Contains("Cookie format is invalid", StringComparison.Ordinal), "Invalid cookie input did not set the expected status message.");
+    }
+
+    private static async Task VerifyIncorrectFingerprintStatusAsync(DecryptService decryptService, string tempRoot, string encryptedCookieInput)
+    {
+        var viewModel = CreateViewModel(decryptService, tempRoot, "wrong-fingerprint");
+        viewModel.Fingerprint = "9999999999";
+        viewModel.CookieInput = encryptedCookieInput;
+        await viewModel.DecryptCookieAsync();
+
+        Assert(viewModel.StatusText.Contains("Cookie decryption failed", StringComparison.Ordinal), "Wrong fingerprint did not set the expected status message.");
+    }
+
+    private static async Task VerifyInvalidEncFormatStatusAsync(DecryptService decryptService, string tempRoot)
+    {
+        var viewModel = CreateViewModel(decryptService, tempRoot, "invalid-enc");
+        viewModel.PayloadEncryptionKey = EncryptionKey;
+        viewModel.PayloadInput = "not-a-valid-enc";
+        await viewModel.DecryptPayloadAsync();
+
+        Assert(viewModel.StatusText.Contains("ENC format is invalid", StringComparison.Ordinal), "Invalid ENC input did not set the expected status message.");
+    }
+
+    private static async Task VerifyIncorrectEncKeyStatusAsync(DecryptService decryptService, string tempRoot, string encPayload)
+    {
+        var viewModel = CreateViewModel(decryptService, tempRoot, "wrong-enc-key");
+        viewModel.PayloadEncryptionKey = "AAAAAAAAAAAAAAAA";
+        viewModel.PayloadInput = encPayload;
+        await viewModel.DecryptPayloadAsync();
+
+        Assert(viewModel.StatusText.Contains("ENC decryption failed", StringComparison.Ordinal), "Wrong ENC key did not set the expected status message.");
     }
 
     private static MainWindowViewModel CreateViewModel(DecryptService decryptService, string tempRoot, string name)
