@@ -277,7 +277,7 @@
                             <TextBlock Margin="0,4,0,0"
                                        FontSize="15"
                                        Foreground="#4B5563"
-                                       Text="QA-ready token inspection, comparison, and troubleshooting" />
+                                       Text="Copy from Network. Understand instantly." />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
@@ -312,19 +312,42 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource SectionTitle}"
+                    <Grid HorizontalAlignment="Left"
+                          MaxWidth="980">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Style="{StaticResource SectionTitle}"
+                                   Margin="0,0,10,0"
                                    VerticalAlignment="Center"
-                                   Text="Auto-detect: paste a token, request, URL, payload, or drop a HAR file." />
-                        <Border Style="{StaticResource InfoBadge}"
-                                Margin="10,0,0,0">
+                                   TextWrapping="Wrap"
+                                   Text="Paste cookies, JWTs, requests, or HAR files from DevTools to inspect, decode, and compare in seconds." />
+                        <Border Grid.Column="1"
+                                Style="{StaticResource InfoBadge}"
+                                Margin="0,0,0,0"
+                                VerticalAlignment="Top">
                             <Border.ToolTip>
                                 <ToolTip Style="{StaticResource GuidanceToolTip}">
                                     <StackPanel>
                                         <TextBlock FontSize="15"
                                                    FontWeight="SemiBold"
                                                    Foreground="#0F172A"
-                                                   Text="Use the easiest source you already have" />
+                                                   Text="Start from DevTools" />
+                                        <Border Margin="0,10,0,0"
+                                                Padding="10"
+                                                CornerRadius="8"
+                                                Background="#F8FAFC">
+                                            <TextBlock TextWrapping="Wrap"
+                                                       Foreground="#1F2937">
+                                                <Run FontWeight="SemiBold" Text="Cookie:" />
+                                                <Run Text=" paste the full " />
+                                                <Run FontWeight="SemiBold" Text="encinfo" />
+                                                <Run Text=" cookie from Application/Storage, or copy the Cookie header from the Network tab." />
+                                            </TextBlock>
+                                        </Border>
                                         <Border Margin="0,10,0,0"
                                                 Padding="10"
                                                 CornerRadius="8"
@@ -332,7 +355,11 @@
                                             <TextBlock TextWrapping="Wrap"
                                                        Foreground="#1E3A8A">
                                                 <Run FontWeight="SemiBold" Text="JWT:" />
-                                                <Run Text=" paste the full fetch or cURL request instead of hunting for the bearer token in headers." />
+                                                <Run Text=" use " />
+                                                <Run FontWeight="SemiBold" Text="Copy as cURL" />
+                                                <Run Text=" or " />
+                                                <Run FontWeight="SemiBold" Text="Copy as fetch" />
+                                                <Run Text=" from the Network tab instead of hunting for the bearer token manually." />
                                             </TextBlock>
                                         </Border>
                                         <Border Margin="0,8,0,0"
@@ -341,10 +368,10 @@
                                                 Background="#F0FDF4">
                                             <TextBlock TextWrapping="Wrap"
                                                        Foreground="#166534">
-                                                <Run FontWeight="SemiBold" Text="Payload:" />
-                                                <Run Text=" paste the page or API URL that already contains the " />
+                                                <Run FontWeight="SemiBold" Text="Decrypt ENC:" />
+                                                <Run Text=" paste the page URL, API URL, request body, or response body that already contains the " />
                                                 <Run FontWeight="SemiBold" Text="ENC" />
-                                                <Run Text=" query value." />
+                                                <Run Text=" value." />
                                             </TextBlock>
                                         </Border>
                                         <Border Margin="0,8,0,0"
@@ -353,8 +380,10 @@
                                                 Background="#FFF7ED">
                                             <TextBlock TextWrapping="Wrap"
                                                        Foreground="#9A3412">
-                                                <Run FontWeight="SemiBold" Text="Compare:" />
-                                                <Run Text=" drop a HAR file when you want the app to extract both sides for you." />
+                                                <Run FontWeight="SemiBold" Text="Cookie vs JWT:" />
+                                                <Run Text=" export a " />
+                                                <Run FontWeight="SemiBold" Text="HAR" />
+                                                <Run Text=" from the Network tab when you want the app to pull the cookie, JWT, and compare data for you." />
                                             </TextBlock>
                                         </Border>
                                     </StackPanel>
@@ -362,7 +391,7 @@
                             </Border.ToolTip>
                             <TextBlock Style="{StaticResource InfoBadgeText}" />
                         </Border>
-                    </StackPanel>
+                    </Grid>
                     <controls:FloatingLabelTextBox Height="96"
                                                    SelectAllOnFocus="True"
                                                    Label="Paste or drop a value"
