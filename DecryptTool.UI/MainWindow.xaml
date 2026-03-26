@@ -1033,8 +1033,6 @@
                                                                TextWrapping="Wrap"
                                                                VerticalScrollBarVisibility="Auto"
                                                                HorizontalScrollBarVisibility="Auto"
-                                                               InputFontFamily="Consolas"
-                                                               InputFontSize="12.5"
                                                                Text="{Binding JwtValidateKey, UpdateSourceTrigger=PropertyChanged}" />
                                 <StackPanel Margin="2,8,0,0"
                                             Orientation="Horizontal">
@@ -1056,29 +1054,52 @@
                                         <TextBlock Style="{StaticResource InfoBadgeText}" />
                                     </Border>
                                 </StackPanel>
-                                <Button Margin="0,18,0,0"
-                                        Style="{StaticResource PrimaryButton}"
-                                        IsEnabled="{Binding CanValidateJwt}"
-                                        Click="JwtValidateButton_Click"
-                                        Content="{Binding ValidateActionText}" />
-                            </StackPanel>
+                                <Grid Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                            <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                <Border Style="{StaticResource StatusPill}"
-                                        Background="{Binding JwtValidateBadgeBrush}">
-                                    <TextBlock Style="{StaticResource StatusPillText}"
-                                               Foreground="{Binding LightTextBrushValue}"
-                                               Text="{Binding JwtValidateBadgeText}" />
-                                </Border>
-                            </Grid>
+                                    <Button Grid.Column="0"
+                                            Style="{StaticResource PrimaryButton}"
+                                            IsEnabled="{Binding CanValidateJwt}"
+                                            Click="JwtValidateButton_Click"
+                                            Content="{Binding ValidateActionText}" />
+
+                                    <Border Grid.Column="2"
+                                            Style="{StaticResource StatusPill}"
+                                            Padding="18,10"
+                                            Background="{Binding JwtValidateBadgeBrush}"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource StatusPillText}"
+                                                   Foreground="{Binding LightTextBrushValue}"
+                                                   Text="{Binding JwtValidateBadgeText}" />
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
 
                             <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Verification Result" />
-                                <TextBox Margin="0,10,0,0"
-                                         MinHeight="340"
-                                         Style="{StaticResource CodeBox}"
-                                         IsReadOnly="True"
-                                         Text="{Binding JwtValidateSummary, Mode=OneWay}" />
+                                <Border Margin="0,10,0,0"
+                                        MinHeight="160"
+                                        MaxHeight="220"
+                                        Padding="18,16"
+                                        Background="{StaticResource InputBackgroundBrush}"
+                                        BorderBrush="{StaticResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="12">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <TextBlock Style="{StaticResource BodyText}"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#1F2937"
+                                                   LineHeight="24"
+                                                   TextWrapping="Wrap"
+                                                   Text="{Binding JwtValidateSummary, Mode=OneWay}" />
+                                    </ScrollViewer>
+                                </Border>
                             </StackPanel>
                         </Grid>
                     </ScrollViewer>
