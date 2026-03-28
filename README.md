@@ -49,6 +49,10 @@ Then edit `appsettings.json` and replace the placeholder values with your real s
 
 `appsettings.json` is local-only and is ignored by Git.
 
+## Documentation
+
+- [Session Management Architecture](./docs/Session-Management-Architecture.md)
+
 ## CLI Usage
 
 ```bash
